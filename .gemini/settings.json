@@ -1,0 +1,15 @@
+{
+  "experimental": {
+    "extensionReloading": true,
+    "modelSteering": true
+  },
+  "general": {
+    "devtools": true,
+    "plan": {
+      "enabled": true
+    }
+  },
+  "agents": {
+    "overrides": {}
+  }
+}
