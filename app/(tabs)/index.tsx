@@ -1,98 +1,156 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, FlatList, Text, Platform, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
+import { ThemedHeader } from '@/components/ThemedHeader';
+import { MessageBubble } from '@/components/Chat/MessageBubble';
+import { InputArea } from '@/components/Chat/InputArea';
+import { SystemMonitor } from '@/components/Chat/SystemMonitor';
+import { PrivacyGuard } from '@/components/Assurance/PrivacyGuard';
+import { Colors } from '@/constants/theme';
+import { StatusBar } from 'expo-status-bar';
+import { useOnionAI } from '@/hooks/useOnionAI';
+import { useModelContext } from '@/hooks/ModelContext';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const { modelUri, tokenizerUri, tokenizerConfigUri, isLoadingAssets } = useModelContext();
+  const { messages, sendMessage, isThinking, isMockMode, errorMessage } = useOnionAI({ 
+    useMock: false,
+    modelUri,
+    tokenizerUri,
+    tokenizerConfigUri
+  });
+  const [inputValue, setInputValue] = useState('');
+  const flatListRef = useRef<FlatList>(null);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  useEffect(() => {
+    // Scroll to bottom on new messages
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }, [messages, isThinking]);
+
+  const handleSend = async () => {
+    if (!inputValue.trim() || isThinking) return;
+    sendMessage(inputValue);
+    setInputValue('');
+  };
+
+  if (isLoadingAssets) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <Text style={styles.loadingText}>Preparing local models...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <ThemedHeader 
+        title="OnionAI" 
+        subtitle={isMockMode ? 'Mock Mode' : (modelUri?.split('/').pop() ?? 'Local Mode')}
+      />
+      
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <SystemMonitor 
+          isMockMode={isMockMode}
+          isThinking={Boolean(isThinking)}
+          hasModel={Boolean(modelUri)}
+          hasTokenizer={Boolean(tokenizerUri)}
+          errorMessage={errorMessage}
+        />
+
+        <PrivacyGuard />
+        
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <MessageBubble 
+              text={item.text}
+              sender={item.sender}
+              senderName={item.senderName}
+              timestamp={item.timestamp}
+            />
+          )}
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View style={styles.dateIndicator}>
+              <Text style={styles.dateText}>
+                {new Date().toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+              </Text>
+            </View>
+          }
+          ListFooterComponent={
+            isThinking ? (
+              <View style={styles.thinkingContainer}>
+                <Text style={styles.thinkingText}>OnionAI is thinking...</Text>
+                <ActivityIndicator color={Colors.dark.tertiary} size="small" />
+              </View>
+            ) : null
+          }
+        />
+
+        <InputArea 
+          value={inputValue}
+          onChangeText={setInputValue}
+          onSend={handleSend}
+        />
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.background,
+  },
+  listContent: {
+    paddingBottom: 24, 
+    paddingTop: 16,
+  },
+  dateIndicator: {
+    alignSelf: 'center',
+    backgroundColor: Colors.dark.surfaceContainerHigh,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginBottom: 20,
+  },
+  dateText: {
+    color: Colors.dark.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  thinkingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginLeft: 20,
+    marginTop: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  thinkingText: {
+    color: Colors.dark.tertiary,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: Colors.dark.onSurface,
+    marginTop: 16,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

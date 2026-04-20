@@ -5,25 +5,53 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const palette = {
+  primary: '#bac3ff',
+  onPrimary: '#08218a',
+  primaryContainer: '#3f51b5',
+  onPrimaryContainer: '#cacfff',
+  secondary: '#c8c6c5',
+  onSecondary: '#303030',
+  secondaryContainer: '#474746',
+  onSecondaryContainer: '#b7b5b4',
+  tertiary: '#00daf3',
+  onTertiary: '#00363d',
+  tertiaryContainer: '#006470',
+  onTertiaryContainer: '#31e6ff',
+  background: '#131313',
+  onBackground: '#e5e2e1',
+  surface: '#131313',
+  onSurface: '#e5e2e1',
+  surfaceVariant: '#353534',
+  onSurfaceVariant: '#c5c5d4',
+  surfaceContainerLow: '#1c1b1b',
+  surfaceContainer: '#201f1f',
+  surfaceContainerHigh: '#2a2a2a',
+  surfaceContainerHighest: '#353534',
+  outline: '#8f909e',
+  outlineVariant: '#454652',
+  error: '#ffb4ab',
+  onError: '#690005',
+  errorContainer: '#93000a',
+  onErrorContainer: '#ffdad6',
+};
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    ...palette,
+    text: palette.onBackground,
+    tint: palette.primary,
+    icon: palette.outline,
+    tabIconDefault: palette.outline,
+    tabIconSelected: palette.primary,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    ...palette,
+    text: palette.onBackground,
+    tint: palette.primary,
+    icon: palette.outline,
+    tabIconDefault: palette.outline,
+    tabIconSelected: palette.primary,
   },
 };
 
