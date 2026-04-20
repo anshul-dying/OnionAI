@@ -8,40 +8,72 @@ import { PrivacyGuard } from '@/components/Assurance/PrivacyGuard';
 import { Colors } from '@/constants/theme';
 import { StatusBar } from 'expo-status-bar';
 import { useOnionAI } from '@/hooks/useOnionAI';
+import { useChatHistory } from '@/hooks/ChatHistoryContext';
 import { useModelContext } from '@/hooks/ModelContext';
 
 export default function HomeScreen() {
   const { modelUri, tokenizerUri, tokenizerConfigUri, isLoadingAssets } = useModelContext();
-  const { messages, sendMessage, isThinking, isMockMode, errorMessage } = useOnionAI({ 
-    useMock: false,
+  const { activeSession, isLoading: isLoadingHistory } = useChatHistory();
+  const shouldUseMock = !modelUri || !tokenizerUri || !tokenizerConfigUri;
+
+  if (isLoadingAssets || isLoadingHistory || !activeSession) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <Text style={styles.loadingText}>Preparing workspace...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ChatRuntime
+      key={`${activeSession.id}-${shouldUseMock ? 'mock' : 'native'}`}
+      modelUri={modelUri}
+      tokenizerUri={tokenizerUri}
+      tokenizerConfigUri={tokenizerConfigUri}
+      useMock={shouldUseMock}
+      initialMessages={activeSession.messages}
+    />
+  );
+}
+
+function ChatRuntime({
+  modelUri,
+  tokenizerUri,
+  tokenizerConfigUri,
+  useMock,
+  initialMessages,
+}: {
+  modelUri: string | null;
+  tokenizerUri: string | null;
+  tokenizerConfigUri: string | null;
+  useMock: boolean;
+  initialMessages: Parameters<typeof useOnionAI>[0]['initialMessages'];
+}) {
+  const { updateActiveSessionMessages } = useChatHistory();
+  const { messages, sendMessage, isThinking, isMockMode, errorMessage } = useOnionAI({
+    useMock,
     modelUri,
     tokenizerUri,
-    tokenizerConfigUri
+    tokenizerConfigUri,
+    initialMessages,
+    onMessagesChange: updateActiveSessionMessages,
   });
   const [inputValue, setInputValue] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    // Scroll to bottom on new messages
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  }, [messages, isThinking]);
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [messages.length]);
 
   const handleSend = async () => {
     if (!inputValue.trim() || isThinking) return;
     sendMessage(inputValue);
     setInputValue('');
   };
-
-  if (isLoadingAssets) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
-        <Text style={styles.loadingText}>Preparing local models...</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>

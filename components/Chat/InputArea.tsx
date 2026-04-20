@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, Platform, Keyboard } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 interface InputAreaProps {
   value: string;
@@ -17,8 +18,21 @@ export const InputArea: React.FC<InputAreaProps> = ({
   placeholder = 'Message OnionAI...',
 }) => {
   const insets = useSafeAreaInsets();
-  // Tab bar is roughly 64 + insets.bottom. We want the input to sit just above it.
-  const bottomPadding = insets.bottom + 72;
+  const tabBarHeight = useBottomTabBarHeight();
+  const [isKeyboardVisible, setIsKeyboardVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const bottomPadding = isKeyboardVisible ? 8 : Math.max(8, tabBarHeight - insets.bottom + 8);
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MockLLMService, Message } from '@/scripts/mock-llm';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -11,14 +11,43 @@ const useMockLLM = () => ({
   },
 });
 
-// Try to import react-native-executorch, but don't crash if it's missing (Expo Go)
-let useLLMHook: any;
-try {
-  const executorch = require('react-native-executorch');
-  useLLMHook = executorch.useLLM;
-} catch (e) {
-  console.warn('react-native-executorch is not available. Falling back to mock mode.');
-  useLLMHook = useMockLLM;
+type NativeUseLLM = (options: {
+  model: {
+    modelName: string;
+    modelSource: string;
+    tokenizerSource: string;
+    tokenizerConfigSource: string;
+  };
+  preventLoad: boolean;
+}) => {
+  response?: string;
+  isGenerating?: boolean;
+  sendMessage?: (text: string) => Promise<void>;
+  error?: { message?: string; code?: number };
+};
+
+let cachedNativeUseLLM: NativeUseLLM | null | undefined;
+let executorchInitialized = false;
+
+function getNativeUseLLM(): NativeUseLLM | null {
+  if (cachedNativeUseLLM !== undefined) {
+    return cachedNativeUseLLM;
+  }
+  try {
+    const executorch = require('react-native-executorch');
+    const maybeUseLLM = executorch?.useLLM as NativeUseLLM | undefined;
+    const initExecutorch = executorch?.initExecutorch as ((options?: unknown) => void) | undefined;
+
+    if (initExecutorch && !executorchInitialized) {
+      initExecutorch();
+      executorchInitialized = true;
+    }
+
+    cachedNativeUseLLM = maybeUseLLM ?? null;
+  } catch {
+    cachedNativeUseLLM = null;
+  }
+  return cachedNativeUseLLM;
 }
 
 export interface UseOnionAIProps {
@@ -26,6 +55,8 @@ export interface UseOnionAIProps {
   modelUri?: string | null;
   tokenizerUri?: string | null;
   tokenizerConfigUri?: string | null;
+  initialMessages?: Message[];
+  onMessagesChange?: (messages: Message[]) => void;
 }
 
 const WELCOME_MESSAGE: Message = {
@@ -36,15 +67,37 @@ const WELCOME_MESSAGE: Message = {
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 
-export function useOnionAI({ useMock: initialUseMock = false, modelUri, tokenizerUri, tokenizerConfigUri }: UseOnionAIProps = {}) {
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+export function useOnionAI({
+  useMock: initialUseMock = false,
+  modelUri,
+  tokenizerUri,
+  tokenizerConfigUri,
+  initialMessages,
+  onMessagesChange,
+}: UseOnionAIProps = {}) {
+  const [messages, setMessages] = useState<Message[]>(
+    initialMessages && initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE]
+  );
   const [activeTokenizerUri, setActiveTokenizerUri] = useState<string | null>(tokenizerUri ?? null);
   const [isTokenizerFallbackExhausted, setIsTokenizerFallbackExhausted] = useState(false);
+  const messageCounterRef = useRef(0);
+  const pendingNativeAiMessageIdRef = useRef<string | null>(null);
+  const lastNativeResponseRef = useRef<string>('');
+  const lastSyncedMessagesRef = useRef<Message[] | null>(null);
+  const nativeUseLLM = getNativeUseLLM();
 
   useEffect(() => {
     setActiveTokenizerUri(tokenizerUri ?? null);
     setIsTokenizerFallbackExhausted(false);
   }, [tokenizerUri, modelUri]);
+
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      setMessages(initialMessages);
+      return;
+    }
+    setMessages([WELCOME_MESSAGE]);
+  }, [initialMessages]);
 
   const tokenizerCandidates = useMemo(() => {
     const dirs = [
@@ -59,41 +112,21 @@ export function useOnionAI({ useMock: initialUseMock = false, modelUri, tokenize
     return Array.from(new Set(candidates));
   }, [tokenizerUri]);
   
-  // If useLLM is not available (Expo Go), force mock mode
-  const isNativeAvailable = useLLMHook !== useMockLLM;
-  const useMock = initialUseMock || !isNativeAvailable || !modelUri || !activeTokenizerUri;
-
-  useEffect(() => {
-    if (useMock) {
-      console.log('--- OnionAI Status ---');
-      console.log('Mode: Mock');
-      console.log('Reason:', !isNativeAvailable ? 'Native Module Missing (Expo Go?)' : (!modelUri ? 'Model URI Missing' : 'Tokenizer URI Missing'));
-      console.log('ModelPath:', modelUri);
-      console.log('TokenizerPath:', activeTokenizerUri);
-      console.log('----------------------');
-    } else {
-      console.log('--- OnionAI Status ---');
-      console.log('Mode: Native ExecuTorch');
-      console.log('Model:', modelUri);
-      console.log('Tokenizer:', activeTokenizerUri);
-      console.log('Config:', tokenizerConfigUri);
-      if (activeTokenizerUri?.endsWith('.model')) {
-        console.warn('CAUTION: You are using a .model tokenizer. Llama 3.2 often requires .json.');
-      }
-      console.log('----------------------');
-    }
-  }, [useMock, isNativeAvailable, modelUri, activeTokenizerUri, tokenizerConfigUri]);
-
-  // Real ExecuTorch Hook - must be called unconditionally if it's a hook
-  const llm = useLLMHook({
-    model: {
-      modelName: 'llama-3.2-1b',
-      modelSource: modelUri || '',
-      tokenizerSource: activeTokenizerUri || '',
-      tokenizerConfigSource: tokenizerConfigUri || '', 
-    },
-    preventLoad: !modelUri || !activeTokenizerUri || !tokenizerConfigUri,
-  });
+  const computedUseMock =
+    initialUseMock || !nativeUseLLM || !modelUri || !activeTokenizerUri || !tokenizerConfigUri;
+  const useMockRef = useRef<boolean>(computedUseMock);
+  const useMock = useMockRef.current;
+  const llm = useMock
+    ? useMockLLM()
+    : nativeUseLLM({
+        model: {
+          modelName: 'llama-3.2-1b',
+          modelSource: modelUri || '',
+          tokenizerSource: activeTokenizerUri || '',
+          tokenizerConfigSource: tokenizerConfigUri || '',
+        },
+        preventLoad: false,
+      });
 
   useEffect(() => {
     if (useMock || !llm?.error || isTokenizerFallbackExhausted) {
@@ -152,18 +185,17 @@ export function useOnionAI({ useMock: initialUseMock = false, modelUri, tokenize
     return () => {
       cancelled = true;
     };
-  }, [
-    llm?.error,
-    useMock,
-    isTokenizerFallbackExhausted,
-    tokenizerCandidates,
-    activeTokenizerUri,
-  ]);
+  }, [llm?.error, useMock, isTokenizerFallbackExhausted, tokenizerCandidates, activeTokenizerUri]);
 
   const sendMessage = useCallback(async (text: string) => {
+    const createMessageId = () => {
+      messageCounterRef.current += 1;
+      return `${Date.now()}-${messageCounterRef.current}`;
+    };
+
     // Add user message to UI immediately
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: createMessageId(),
       text,
       sender: 'user',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -174,7 +206,7 @@ export function useOnionAI({ useMock: initialUseMock = false, modelUri, tokenize
     if (useMock) {
       const response = await MockLLMService.generateResponse(text);
       const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: createMessageId(),
         text: response,
         sender: 'ai',
         senderName: 'OnionAI',
@@ -183,6 +215,19 @@ export function useOnionAI({ useMock: initialUseMock = false, modelUri, tokenize
       setMessages(prev => [...prev, aiMessage]);
     } else if (llm && llm.sendMessage) {
       try {
+        const aiMessageId = createMessageId();
+        pendingNativeAiMessageIdRef.current = aiMessageId;
+        lastNativeResponseRef.current = llm?.response ?? '';
+        setMessages(prev => [
+          ...prev,
+          {
+            id: aiMessageId,
+            text: '',
+            sender: 'ai',
+            senderName: 'OnionAI',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
         await llm.sendMessage(text);
       } catch (err) {
         console.error("ExecuTorch Error:", err);
@@ -192,34 +237,39 @@ export function useOnionAI({ useMock: initialUseMock = false, modelUri, tokenize
     }
   }, [useMock, llm]);
 
-  // Sync real LLM response to messages
+  // Sync real LLM response into the pending AI message
   useEffect(() => {
-    if (!useMock && llm?.response) {
-      const lastMessage = messages[messages.length - 1];
-      
-      // If the last message is from AI, update it (streaming)
-      if (lastMessage && lastMessage.sender === 'ai' && lastMessage.id === 'llm-streaming') {
-        setMessages(prev => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            ...updated[updated.length - 1],
-            text: llm.response,
-          };
-          return updated;
-        });
-      } else if (!llm.isGenerating && llm.response) {
-        // Final response received
-        const aiMessage: Message = {
-          id: 'llm-streaming',
-          text: llm.response,
-          sender: 'ai',
-          senderName: 'OnionAI',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-        setMessages(prev => [...prev, aiMessage]);
-      }
+    if (useMock || !pendingNativeAiMessageIdRef.current || !llm?.response) {
+      return;
+    }
+
+    if (llm.response === lastNativeResponseRef.current) return;
+    lastNativeResponseRef.current = llm.response;
+
+    const targetId = pendingNativeAiMessageIdRef.current;
+    setMessages(prev =>
+      prev.map(message =>
+        message.id === targetId
+          ? {
+              ...message,
+              text: llm.response,
+            }
+          : message
+      )
+    );
+
+    if (!llm.isGenerating) {
+      pendingNativeAiMessageIdRef.current = null;
+      lastNativeResponseRef.current = '';
     }
   }, [llm?.response, llm?.isGenerating, useMock]);
+
+  useEffect(() => {
+    if (!onMessagesChange) return;
+    if (lastSyncedMessagesRef.current === messages) return;
+    lastSyncedMessagesRef.current = messages;
+    onMessagesChange(messages);
+  }, [messages, onMessagesChange]);
 
   return {
     messages,

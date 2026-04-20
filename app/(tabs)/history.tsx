@@ -1,31 +1,65 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ThemedHeader } from '@/components/ThemedHeader';
 import { Colors } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-
-const HISTORY_DATA = [
-  {
-    id: '1',
-    title: 'Neural Architecture Design',
-    preview: "Let's explore the implications of sparse attention mechanisms in large scale transformer models and how they...",
-    time: '10:42 AM',
-    tag: 'AI Analysis',
-  },
-  {
-    id: '2',
-    title: 'Sustainable Urban Farming',
-    preview: 'Provide a list of vertical farming equipment suitable for a small warehouse in Brooklyn with limited sunlight...',
-    time: '8:15 AM',
-  },
-];
+import { useChatHistory } from '@/hooks/ChatHistoryContext';
 
 export default function HistoryScreen() {
+  const router = useRouter();
+  const { sessions, selectSession, createNewSession, deleteSession } = useChatHistory();
+  const [query, setQuery] = useState('');
+
+  const orderedSessions = useMemo(
+    () =>
+      [...sessions].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      ),
+    [sessions]
+  );
+
+  const filteredSessions = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return orderedSessions;
+
+    return orderedSessions.filter((session) => {
+      const lastMessage = [...session.messages].reverse().find((message) => message.text.trim().length > 0);
+      const searchableText = `${session.title} ${lastMessage?.text ?? ''}`.toLowerCase();
+      return searchableText.includes(normalizedQuery);
+    });
+  }, [orderedSessions, query]);
+
+  const openSession = (sessionId: string) => {
+    selectSession(sessionId);
+    router.push('/(tabs)');
+  };
+
+  const createSessionAndOpen = () => {
+    createNewSession();
+    router.push('/(tabs)');
+  };
+
+  const confirmDeleteSession = (sessionId: string) => {
+    Alert.alert(
+      'Delete chat',
+      'This conversation will be removed from local history.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteSession(sessionId),
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ThemedHeader 
         title="History" 
-        rightIcons={[{ name: 'tune', onPress: () => {} }]}
+        rightIcons={[{ name: 'add', onPress: createSessionAndOpen }]}
       />
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -35,47 +69,54 @@ export default function HistoryScreen() {
             style={styles.searchInput}
             placeholder="Search conversations..."
             placeholderTextColor={Colors.dark.onSurfaceVariant}
+            value={query}
+            onChangeText={setQuery}
           />
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Today</Text>
-        </View>
-
-        {HISTORY_DATA.map((item) => (
-          <TouchableOpacity key={item.id} style={styles.historyCard}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardTime}>{item.time}</Text>
-            </View>
-            <Text style={styles.cardPreview} numberOfLines={2}>{item.preview}</Text>
-            {item.tag && (
-              <View style={styles.tagBadge}>
-                <Text style={styles.tagText}>{item.tag}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-
-        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-          <Text style={styles.sectionTitle}>Yesterday</Text>
-        </View>
-
-        <TouchableOpacity style={styles.historyCard}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>JavaScript Refactoring</Text>
-            <Text style={styles.cardTime}>Yesterday</Text>
+        {filteredSessions.length === 0 ? (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="history" size={28} color={Colors.dark.outline} />
+            <Text style={styles.emptyTitle}>No conversations found</Text>
+            <Text style={styles.emptySub}>Start a new chat to populate your local history.</Text>
           </View>
-          <Text style={[styles.cardPreview, styles.monoPreview]} numberOfLines={2}>
-            const refactor = (code) =&gt; {' { // analyzing complex logic structures }'}
-          </Text>
-          <View style={[styles.tagBadge, { backgroundColor: 'rgba(186, 195, 255, 0.1)' }]}>
-            <Text style={[styles.tagText, { color: Colors.dark.primary }]}>Coding</Text>
-          </View>
-        </TouchableOpacity>
+        ) : (
+          filteredSessions.map((session) => {
+            const lastMessage =
+              [...session.messages].reverse().find((message) => message.text.trim().length > 0) ?? session.messages[0];
+            const preview = lastMessage?.text ?? 'Empty conversation';
+            const updatedAt = new Date(session.updatedAt);
+            const timeLabel = updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateLabel = updatedAt.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+            return (
+              <TouchableOpacity key={session.id} style={styles.historyCard} onPress={() => openSession(session.id)}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{session.title}</Text>
+                  <View style={styles.cardRightActions}>
+                    <Text style={styles.cardTime}>{dateLabel} · {timeLabel}</Text>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        confirmDeleteSession(session.id);
+                      }}
+                    >
+                      <MaterialIcons name="delete-outline" size={18} color={Colors.dark.error} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <Text style={styles.cardPreview} numberOfLines={2}>{preview}</Text>
+                <View style={styles.tagBadge}>
+                  <Text style={styles.tagText}>{session.messages.length} messages</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab}>
+      <TouchableOpacity style={styles.fab} onPress={createSessionAndOpen}>
         <MaterialIcons name="add" size={32} color={Colors.dark.onPrimary} />
       </TouchableOpacity>
     </View>
@@ -109,17 +150,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  sectionHeader: {
-    paddingHorizontal: 4,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    color: Colors.dark.onSurfaceVariant,
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
   historyCard: {
     backgroundColor: Colors.dark.surfaceContainerLow,
     borderRadius: 24,
@@ -146,16 +176,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
+  cardRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteButton: {
+    padding: 2,
+  },
   cardPreview: {
     color: Colors.dark.onSurfaceVariant,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 12,
-  },
-  monoPreview: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    opacity: 0.8,
   },
   tagBadge: {
     alignSelf: 'flex-start',
@@ -170,6 +203,26 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  emptyState: {
+    marginTop: 24,
+    padding: 24,
+    borderRadius: 24,
+    alignItems: 'center',
+    backgroundColor: Colors.dark.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    gap: 8,
+  },
+  emptyTitle: {
+    color: Colors.dark.onSurface,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emptySub: {
+    color: Colors.dark.onSurfaceVariant,
+    fontSize: 12,
+    textAlign: 'center',
   },
   fab: {
     position: 'absolute',
