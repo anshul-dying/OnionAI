@@ -35,16 +35,34 @@ function getNativeUseLLM(): NativeUseLLM | null {
   }
   try {
     const executorch = require('react-native-executorch');
+    const executorchExpoResourceFetcher = require('react-native-executorch-expo-resource-fetcher');
     const maybeUseLLM = executorch?.useLLM as NativeUseLLM | undefined;
-    const initExecutorch = executorch?.initExecutorch as ((options?: unknown) => void) | undefined;
+    const initExecutorch = executorch?.initExecutorch as
+      | ((options: { resourceFetcher: unknown }) => void)
+      | undefined;
+    const resourceFetcher = executorchExpoResourceFetcher?.ExpoResourceFetcher;
 
-    if (initExecutorch && !executorchInitialized) {
-      initExecutorch();
+    if (initExecutorch && resourceFetcher && !executorchInitialized) {
+      initExecutorch({ resourceFetcher });
       executorchInitialized = true;
+    } else if (initExecutorch && !resourceFetcher) {
+      console.error(
+        'react-native-executorch-expo-resource-fetcher is unavailable. Native mode cannot initialize.'
+      );
+    }
+
+    if (!maybeUseLLM) {
+      console.warn(
+        'react-native-executorch loaded, but useLLM is unavailable. Falling back to mock mode.'
+      );
     }
 
     cachedNativeUseLLM = maybeUseLLM ?? null;
-  } catch {
+  } catch (error) {
+    console.error(
+      'Failed to load react-native-executorch. Falling back to mock mode.',
+      error
+    );
     cachedNativeUseLLM = null;
   }
   return cachedNativeUseLLM;
@@ -104,7 +122,10 @@ export function useOnionAI({
   const tokenizerCandidates = useMemo(() => {
     const dirs = [
       'file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files',
+      'file:///storage/emulated/0/Android/media/com.anonymous.onionAI',
       'file:///storage/emulated/0/onionAI',
+      'file:///storage/emulated/0/Download/onionAI',
+      'file:///storage/emulated/0/Download',
     ];
     const names = ['tokenizer.json', 'tokenizer.bin', 'tokenizer.model'];
     const candidates = [

@@ -32,9 +32,7 @@ export const InputArea: React.FC<InputAreaProps> = ({
     };
   }, []);
 
-  const bottomPadding = isKeyboardVisible
-    ? 8
-    : Math.max(12, Math.min(24, tabBarHeight - 48));
+  const bottomPadding = isKeyboardVisible ? 8 : tabBarHeight + 8;
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>

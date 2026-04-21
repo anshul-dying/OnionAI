@@ -8,9 +8,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useModelContext } from '@/hooks/ModelContext';
 
-const DEFAULT_MODEL_PATH = 'file:///storage/emulated/0/onionAI/Llama-3.2-1B-Instruct.pte';
-const DEFAULT_TOKENIZER_PATH = 'file:///storage/emulated/0/onionAI/tokenizer.json';
-const DEFAULT_TOKENIZER_BIN_PATH = 'file:///storage/emulated/0/onionAI/tokenizer.bin';
+const DEFAULT_MODEL_PATH = 'file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files/Llama-3.2-1B-Instruct.pte';
+const DEFAULT_TOKENIZER_PATH = 'file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files/tokenizer.json';
+const DEFAULT_TOKENIZER_BIN_PATH = 'file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files/tokenizer.bin';
 
 function formatBytes(size: number | null) {
   if (!size || size <= 0) return 'unknown';
@@ -120,7 +120,7 @@ export default function ModelsScreen() {
       : DEFAULT_TOKENIZER_BIN_PATH;
     setModelUri(DEFAULT_MODEL_PATH);
     setTokenizerUri(tokenizerPath);
-    Alert.alert('Default paths applied', 'Using /storage/emulated/0/onionAI defaults.');
+    Alert.alert('Default paths applied', 'Using /storage/emulated/0/Android/data/com.anonymous.onionAI/files defaults.');
   };
 
   const clearPaths = () => {
@@ -201,7 +201,7 @@ export default function ModelsScreen() {
             <Text style={styles.modelName}>Manual path override</Text>
           </View>
           <Text style={styles.modelDesc}>
-            Use absolute file URIs, for example file:///storage/emulated/0/onionAI/Llama-3.2-1B-Instruct.pte
+            Use absolute file URIs, for example file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files/Llama-3.2-1B-Instruct.pte
           </Text>
           <View style={styles.pathField}>
             <Text style={styles.pathLabel}>Model path</Text>

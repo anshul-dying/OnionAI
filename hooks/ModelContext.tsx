@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 
 interface ModelContextType {
@@ -32,11 +31,26 @@ export function ModelProvider({ children }: { children: ReactNode }) {
       fileNames: string[]
     ): Promise<string | null> {
       for (const baseDirectory of baseDirectories) {
+        try {
+          const dirInfo = await FileSystem.getInfoAsync(baseDirectory);
+          if (dirInfo.exists) {
+            const files = await FileSystem.readDirectoryAsync(baseDirectory);
+            console.log(`Contents of ${baseDirectory}:`, files);
+          }
+        } catch (e) {
+          // Silent fail for directory read
+        }
+
         for (const fileName of fileNames) {
           const candidatePath = `${baseDirectory}/${fileName}`;
-          const info = await FileSystem.getInfoAsync(candidatePath);
-          if (info.exists) {
-            return candidatePath;
+          try {
+            const info = await FileSystem.getInfoAsync(candidatePath);
+            if (info.exists) {
+              console.log(`[FOUND] ${fileName} at ${candidatePath}`);
+              return candidatePath;
+            }
+          } catch (e) {
+            // Silent fail for file check
           }
         }
       }
@@ -45,97 +59,147 @@ export function ModelProvider({ children }: { children: ReactNode }) {
 
     async function getFileSize(path: string | null): Promise<number | null> {
       if (!path) return null;
-      const info = await FileSystem.getInfoAsync(path);
-      if (!info.exists || typeof info.size !== 'number') return null;
-      return info.size;
+      try {
+        const info = await FileSystem.getInfoAsync(path);
+        if (!info.exists || typeof info.size !== 'number') return null;
+        return info.size;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function shouldCopyToPrivateStorage(path: string) {
+      // Don't copy if it's already in an app-specific folder (data or media)
+      return (
+        path.startsWith('file:///storage/emulated/0/') &&
+        !path.includes('/Android/data/') &&
+        !path.includes('/Android/media/')
+      );
+    }
+
+    async function ensurePrivateReadableCopy(
+      sourcePath: string | null,
+      destinationPath: string
+    ): Promise<string | null> {
+      if (!sourcePath) return null;
+      if (!shouldCopyToPrivateStorage(sourcePath)) return sourcePath;
+
+      try {
+        const sourceInfo = await FileSystem.getInfoAsync(sourcePath);
+        if (!sourceInfo.exists) return null;
+
+        // For large models (> 1GB), avoid copying from Downloads to Internal if possible
+        // to save space and time. We'll try to use the direct path first.
+        if (sourceInfo.size && sourceInfo.size > 1024 * 1024 * 1024) {
+          console.log('Large model detected, attempting to use direct path from shared storage.');
+          return sourcePath;
+        }
+
+        const destinationInfo = await FileSystem.getInfoAsync(destinationPath);
+        const hasSameSize =
+          destinationInfo.exists &&
+          typeof sourceInfo.size === 'number' &&
+          typeof destinationInfo.size === 'number' &&
+          sourceInfo.size === destinationInfo.size;
+
+        if (!hasSameSize) {
+          console.log('Copying asset to app-private storage:', sourcePath);
+          await FileSystem.copyAsync({ from: sourcePath, to: destinationPath });
+        }
+
+        return destinationPath;
+      } catch (copyError) {
+        console.warn('Unable to copy asset. Using original path.', copyError);
+        return sourcePath;
+      }
     }
 
     async function loadDefaultAssets() {
       try {
         console.log('--- ModelContext: Initializing Paths ---');
-
         const appPrivateFolder = `${FileSystem.documentDirectory}`;
+        const appPrivateAssetDirectory = `${appPrivateFolder}executorch-assets`;
+        
+        const userIdMatch = appPrivateFolder.match(/\/user\/(\d+)\//);
+        const userId = userIdMatch ? userIdMatch[1] : '0';
+        const pkgMatch = appPrivateFolder.match(/\/([^/]+)\/files\/$/);
+        const pkgName = pkgMatch ? pkgMatch[1] : 'com.anonymous.onionAI';
 
-        // Prefer app-private Android folder for model binaries.
-        const modelDirectories = [
+        const dynamicExternalDir = `file:///storage/emulated/${userId}/Android/data/${pkgName}/files`;
+        const dynamicMediaDir = `file:///storage/emulated/${userId}/Android/media/${pkgName}`;
+        const dynamicMediaBaseDir = `file:///storage/emulated/${userId}/Android/media`;
+        const legacyExternalDir = `file:///storage/emulated/${userId}/onionAI`;
+
+        console.log(`[GUIDE] If files are not found, move them to: /Android/media/${pkgName}/`);
+
+        const searchDirectories = [
+          dynamicMediaDir,
+          dynamicMediaBaseDir,
+          dynamicExternalDir,
+          legacyExternalDir,
+          `file:///storage/emulated/${userId}/Download/onionAI`,
+          `file:///storage/emulated/${userId}/Download`,
+          'file:///storage/emulated/0/Android/media/com.anonymous.onionAI',
           'file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files',
           'file:///storage/emulated/0/onionAI',
         ];
 
-        // Prefer app-private Android folder for tokenizer files.
-        const tokenizerDirectories = [
-          'file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files',
-          'file:///storage/emulated/0/onionAI',
-        ];
-
-        // Create config in app-private storage (always writable)
         const configPath = `${appPrivateFolder}tokenizer_config.json`;
+        const privateModelPath = `${appPrivateAssetDirectory}/Llama-3.2-1B-Instruct.pte`;
+        const privateTokenizerJsonPath = `${appPrivateAssetDirectory}/tokenizer.json`;
 
-        const modelPath = await findFirstExistingFile(modelDirectories, [
-          'Llama-3.2-1B-Instruct.pte',
-        ]);
-        const tokenizerPath = await findFirstExistingFile(tokenizerDirectories, [
-          'tokenizer.json',
-          'tokenizer.bin',
-        ]);
-        const externalConfigPath = await findFirstExistingFile(tokenizerDirectories, [
-          'tokenizer_config.json',
-        ]);
+        await FileSystem.makeDirectoryAsync(appPrivateAssetDirectory, { intermediates: true });
+
+        const modelPath = await findFirstExistingFile(searchDirectories, ['Llama-3.2-1B-Instruct.pte']);
+        const tokenizerPath = await findFirstExistingFile(searchDirectories, ['tokenizer.json', 'tokenizer.bin']);
+        const externalConfigPath = await findFirstExistingFile(searchDirectories, ['tokenizer_config.json']);
 
         let finalTokenizerPath = tokenizerPath;
         if (!tokenizerPath) {
-          const modelFallback = await findFirstExistingFile(tokenizerDirectories, ['tokenizer.model']);
-          if (modelFallback) {
-            console.warn('--- Tokenizer Warning ---');
-            console.warn('Found tokenizer.model, but Llama 3.2 models in this app usually require tokenizer.json.');
-            console.warn('If loading fails with error code 4, please provide the HuggingFace tokenizer.json file.');
-            finalTokenizerPath = modelFallback;
+          finalTokenizerPath = await findFirstExistingFile(searchDirectories, ['tokenizer.model']);
+        }
+
+        const fallbackConfig = {
+          bos_token: '<|begin_of_text|>',
+          eos_token: '<|end_of_text|>',
+          pad_token: '<|end_of_text|>',
+          model_max_length: 2048,
+          tokenizer_class: 'TiktokenTokenizer',
+          chat_template: `{% for message in messages %}{{'<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n' + message['content'] + '<|eot_id|>'}}{% endfor %}{{'<|start_header_id|>assistant<|end_header_id|>\n\n'}}`,
+        };
+
+        let configContent = JSON.stringify(fallbackConfig);
+        if (externalConfigPath) {
+          try {
+            configContent = await FileSystem.readAsStringAsync(externalConfigPath);
+            console.log('Loaded external config:', externalConfigPath);
+          } catch (e) {
+            console.warn('External config unreadable, using fallback.');
           }
         }
 
-        let finalConfigPath = configPath;
-        if (externalConfigPath) {
-          console.log('Using external tokenizer config:', externalConfigPath);
-          finalConfigPath = externalConfigPath;
-        } else {
-          // Minimal config required by useLLM tokenizer post-processing.
-          // Llama 3 models (including 3.2) use <|begin_of_text|> and <|end_of_text|>.
-          // Added chat_template which is required by sendMessage.
-          const dummyConfig = {
-            bos_token: '<|begin_of_text|>',
-            eos_token: '<|end_of_text|>',
-            pad_token: '<|end_of_text|>',
-            model_max_length: 2048,
-            tokenizer_class: 'TiktokenTokenizer',
-            chat_template: `{% for message in messages %}{{'<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n' + message['content'] + '<|eot_id|>'}}{% endfor %}{{'<|start_header_id|>assistant<|end_header_id|>\n\n'}}`,
-          };
+        await FileSystem.writeAsStringAsync(configPath, configContent);
+        setTokenizerConfigUri(configPath);
 
-          await FileSystem.writeAsStringAsync(configPath, JSON.stringify(dummyConfig));
-          finalConfigPath = configPath;
-        }
+        const runtimeModelPath = await ensurePrivateReadableCopy(modelPath, privateModelPath);
+        const runtimeTokenizerPath = await ensurePrivateReadableCopy(
+          finalTokenizerPath,
+          finalTokenizerPath?.endsWith('.model') ? `${appPrivateAssetDirectory}/tokenizer.model` : privateTokenizerJsonPath
+        );
 
-        setTokenizerConfigUri(finalConfigPath);
+        const modelSize = await getFileSize(runtimeModelPath);
+        const tokenizerSize = await getFileSize(runtimeTokenizerPath);
 
-        const modelSize = await getFileSize(modelPath);
-        const tokenizerSize = await getFileSize(finalTokenizerPath);
+        console.log('Model:', runtimeModelPath, `(${modelSize} bytes)`);
+        console.log('Tokenizer:', runtimeTokenizerPath, `(${tokenizerSize} bytes)`);
 
-        console.log('Target Model Path:', modelPath);
-        console.log('Target Model Size:', modelSize);
-        console.log('Target Tokenizer Path:', finalTokenizerPath);
-        console.log('Target Tokenizer Size:', tokenizerSize);
-        console.log('Target Config Path:', finalConfigPath);
+        if (!runtimeModelPath || !modelSize) console.warn('Model missing.');
+        if (!runtimeTokenizerPath || !tokenizerSize) console.warn('Tokenizer missing.');
 
-        if (!modelPath || !modelSize || modelSize <= 0) {
-          console.warn('Model file is missing or empty. Native ExecuTorch load will be skipped.');
-        }
-        if (!finalTokenizerPath || !tokenizerSize || tokenizerSize <= 0) {
-          console.warn('Tokenizer file is missing or empty. Native ExecuTorch load will be skipped.');
-        }
-
-        setModelUri(modelPath);
-        setTokenizerUri(finalTokenizerPath);
+        setModelUri(runtimeModelPath);
+        setTokenizerUri(runtimeTokenizerPath);
       } catch (error) {
-        console.error('ModelContext initialization error:', error);
+        console.error('Init error:', error);
       } finally {
         setIsLoadingAssets(false);
       }
