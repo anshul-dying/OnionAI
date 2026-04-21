@@ -1,50 +1,164 @@
-# Welcome to your Expo app 👋
+# onionAI 🧅
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Private, Local-First AI Chat for Mobile**
 
-## Get started
+onionAI is a privacy-centric AI chat application built with React Native and Expo. It leverages **ExecuTorch** to run Large Language Models (LLMs) locally on mobile hardware, ensuring that data never leaves the device and that the AI remains functional without an internet connection.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 🌟 Key Features
 
-2. Start the app
+- **Privacy by Design:** "Local-First, Local-Only" model. Zero telemetry, zero external API calls.
+- **On-Device Inference:** High-performance neural network execution using [ExecuTorch](https://pytorch.org/executorch/).
+- **Offline Capable:** Works perfectly in airplane mode or areas with no connectivity.
+- **Real-Time Streaming:** Responsive UI with token-by-token streaming from local models.
+- **Privacy Guard:** Built-in UI components to assure users of their data security.
+- **Model Flexibility:** Supports Llama 3.2 1B and other ExecuTorch-compatible models.
+- **Dual Mode:** Includes a `MockLLMService` for rapid UI development and testing in non-native environments (like Expo Go or Web).
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🚀 Tech Stack
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- **Framework:** [Expo](https://expo.dev/) (SDK 54) with [Expo Router](https://docs.expo.dev/router/introduction/) (File-based navigation).
+- **AI Engine:** `react-native-executorch` for hardware-accelerated inference.
+- **Language:** TypeScript.
+- **Styling:** Custom themed components for seamless Light/Dark mode support.
+- **State Management:** React Context (Model and History providers).
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## 🏗 Architecture Overview
 
-When you're ready, run:
+OnionAI follows a modular architecture designed for security and performance:
 
-```bash
-npm run reset-project
+1.  **Presentation Layer:** Themed UI components (`app/`, `components/`) built for responsiveness.
+2.  **Application Logic:** Orchestrated via `useOnionAI` hook, managing state between the UI and inference engines.
+3.  **Inference Layer:** An abstraction layer that switches between the native ExecuTorch module and a Mock service.
+4.  **Data Layer:** Manages local storage for model binaries (`.pte`), tokenizer configs (`tokenizer.json`), and chat history.
+
+For more details, see [Architecture Documentation](./docs/architecture.md).
+
+---
+
+## 📦 Getting Started
+
+### Prerequisites
+
+- **Node.js:** v20 or higher.
+- **Development Environment:** 
+    - **Android:** Android Studio and SDK (API 34+).
+    - **iOS:** macOS with Xcode (ExecuTorch requires native compilation).
+- **Model Assets:** You need compatible LLM weights in `.pte` format and a `tokenizer.json`.
+    - Recommended: Llama-3.2-1B-Instruct.
+
+### Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/yourusername/onionAI.git
+    cd onionAI
+    ```
+
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+### Model Setup
+
+ExecuTorch requires model files to be accessible on the device storage.
+
+#### Android Setup
+1.  Create a directory on your device/emulator: `/storage/emulated/0/onionAI/`
+2.  Push your model files:
+    ```bash
+    adb shell mkdir -p /storage/emulated/0/onionAI/
+    adb push Llama-3.2-1B-Instruct.pte /storage/emulated/0/onionAI/
+    adb push tokenizer.json /storage/emulated/0/onionAI/
+    ```
+
+---
+
+## 🛠 Usage & Commands
+
+### Development
+
+- **Start Expo Server:**
+  ```bash
+  npm run start
+  ```
+  *Note: Running in Expo Go will trigger **Mock Mode** because native ExecuTorch modules are not available in the sandbox.*
+
+- **Run on Android (Native):**
+  ```bash
+  npm run android
+  ```
+
+- **Run on iOS (Native):**
+  ```bash
+  npm run ios
+  ```
+
+- **Linting:**
+  ```bash
+  npm run lint
+  ```
+
+### Mock Mode
+If you don't have a physical device or native setup ready, the app automatically falls back to a simulated LLM. This allows you to test the UI, history management, and theming without needing a GPU-capable mobile device.
+
+---
+
+## 📂 Project Structure
+
+```text
+onionAI/
+├── app/                # Expo Router screens (Tabs, Modals, Layouts)
+├── assets/             # Images, fonts, and static assets
+├── components/         # UI Components
+│   ├── Assurance/      # Privacy-focused UI components
+│   ├── Chat/           # Messaging bubbles, input areas, system monitors
+│   └── ui/             # Themed base components
+├── constants/          # Theme and global constants
+├── docs/               # Technical documentation
+├── hooks/              # Custom React hooks (AI logic, Context Providers)
+│   ├── useOnionAI.ts   # Main AI interaction hook
+│   ├── ModelContext.ts # Model asset management
+│   └── ChatHistoryContext.ts # Local persistence of chats
+├── scripts/            # Build and utility scripts
+└── docs/               # Architecture and system documentation
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## 🔒 Privacy & Security
 
-To learn more about developing your project with Expo, look at the following resources:
+OnionAI is built on the principle that **your data is your own**.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- **No Cloud:** We do not use OpenAI, Anthropic, or any other cloud provider.
+- **No Analytics:** We do not track your prompts or usage patterns.
+- **Local Persistence:** Chat history is stored only on your device using the Expo FileSystem API.
+- **Transparency:** The `PrivacyGuard` component provides real-time status of the local connection.
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## 🤝 Contributing
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Contributions are welcome! Please read our `CONTRIBUTING.md` (if available) before submitting a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+**OnionAI: Keeping your thoughts private, one layer at a time.** 🧅
