@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedHeader } from '@/components/ThemedHeader';
 import { Colors } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -8,6 +9,7 @@ import { useChatHistory } from '@/hooks/ChatHistoryContext';
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { sessions, selectSession, createNewSession, deleteSession } = useChatHistory();
   const [query, setQuery] = useState('');
 
@@ -30,14 +32,22 @@ export default function HistoryScreen() {
     });
   }, [orderedSessions, query]);
 
+  const closeHistory = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(tabs)');
+  };
+
   const openSession = (sessionId: string) => {
     selectSession(sessionId);
-    router.push('/(tabs)');
+    closeHistory();
   };
 
   const createSessionAndOpen = () => {
     createNewSession();
-    router.push('/(tabs)');
+    closeHistory();
   };
 
   const confirmDeleteSession = (sessionId: string) => {
@@ -57,15 +67,16 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
-      <ThemedHeader 
-        title="History" 
+      <ThemedHeader
+        title="History"
+        onMenuPress={closeHistory}
         rightIcons={[{ name: 'add', onPress: createSessionAndOpen }]}
       />
-      
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.searchContainer}>
           <MaterialIcons name="search" size={20} color={Colors.dark.onSurfaceVariant} style={styles.searchIcon} />
-          <TextInput 
+          <TextInput
             style={styles.searchInput}
             placeholder="Search conversations..."
             placeholderTextColor={Colors.dark.onSurfaceVariant}
@@ -116,7 +127,7 @@ export default function HistoryScreen() {
         )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab} onPress={createSessionAndOpen}>
+      <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24 }]} onPress={createSessionAndOpen}>
         <MaterialIcons name="add" size={32} color={Colors.dark.onPrimary} />
       </TouchableOpacity>
     </View>
@@ -130,7 +141,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 120,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -226,7 +236,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 100,
     right: 24,
     width: 56,
     height: 56,

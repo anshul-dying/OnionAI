@@ -1,10 +1,65 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity } from 'react-native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { ThemedHeader } from '@/components/ThemedHeader';
 import { Colors } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 
+type IconName = keyof typeof MaterialIcons.glyphMap;
+
+interface ToggleSetting {
+  id: string;
+  icon: IconName;
+  title: string;
+  subtitle: string;
+  enabled: boolean;
+  accent: 'primary' | 'tertiary';
+}
+
+interface ActionSetting {
+  id: string;
+  icon: IconName;
+  title: string;
+}
+
+const MODEL_PREFERENCES: ToggleSetting[] = [
+  {
+    id: 'gpu-acceleration',
+    icon: 'memory',
+    title: 'GPU Acceleration',
+    subtitle: 'Use hardware acceleration if available',
+    enabled: true,
+    accent: 'tertiary',
+  },
+  {
+    id: 'privacy-guard',
+    icon: 'security',
+    title: 'Privacy Guard',
+    subtitle: 'Encrypt local weights and history',
+    enabled: true,
+    accent: 'tertiary',
+  },
+];
+
+const APPEARANCE_SETTINGS: ToggleSetting[] = [
+  {
+    id: 'holographic-theme',
+    icon: 'palette',
+    title: 'Holographic Theme',
+    subtitle: 'Enable premium visual effects',
+    enabled: true,
+    accent: 'primary',
+  },
+];
+
+const PROJECT_ACTIONS: ActionSetting[] = [
+  { id: 'about', icon: 'info', title: 'About Version 1.0.4' },
+  { id: 'updates', icon: 'update', title: 'Check for Updates' },
+];
+
 export default function SettingsScreen() {
+  const tabBarHeight = useBottomTabBarHeight();
+
   return (
     <View style={styles.container}>
       <ThemedHeader 
@@ -12,58 +67,40 @@ export default function SettingsScreen() {
         showMenu={false}
       />
       
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 24 }]}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Model Preferences</Text>
           <View style={styles.card}>
-            <SettingItem 
-              icon="memory" 
-              title="GPU Acceleration" 
-              subtitle="Use hardware acceleration if available" 
-              value={true} 
-            />
-            <SettingDivider />
-            <SettingItem 
-              icon="security" 
-              title="Privacy Guard" 
-              subtitle="Encrypt local weights and history" 
-              value={true} 
-            />
+            {MODEL_PREFERENCES.map((setting, index) => (
+              <React.Fragment key={setting.id}>
+                <SettingItem setting={setting} />
+                {index < MODEL_PREFERENCES.length - 1 ? <SettingDivider /> : null}
+              </React.Fragment>
+            ))}
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Appearance</Text>
           <View style={styles.card}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingLabel}>
-                <MaterialIcons name="palette" size={24} color={Colors.dark.primary} style={styles.itemIcon} />
-                <View>
-                  <Text style={styles.itemTitle}>Holographic Theme</Text>
-                  <Text style={styles.itemSub}>Enable premium visual effects</Text>
-                </View>
-              </View>
-              <Switch 
-                value={true} 
-                trackColor={{ false: '#353534', true: Colors.dark.primaryContainer }}
-                thumbColor={true ? Colors.dark.primary : '#8f909e'}
-              />
-            </View>
+            {APPEARANCE_SETTINGS.map((setting) => (
+              <SettingItem key={setting.id} setting={setting} />
+            ))}
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Project onionAI</Text>
           <View style={styles.card}>
-            <TouchableOpacity style={styles.menuItem}>
-              <MaterialIcons name="info" size={24} color={Colors.dark.outline} style={styles.itemIcon} />
-              <Text style={styles.itemTitle}>About Version 1.0.4</Text>
-            </TouchableOpacity>
-            <SettingDivider />
-            <TouchableOpacity style={styles.menuItem}>
-              <MaterialIcons name="update" size={24} color={Colors.dark.outline} style={styles.itemIcon} />
-              <Text style={styles.itemTitle}>Check for Updates</Text>
-            </TouchableOpacity>
+            {PROJECT_ACTIONS.map((action, index) => (
+              <React.Fragment key={action.id}>
+                <TouchableOpacity style={styles.menuItem} accessibilityRole="button">
+                  <MaterialIcons name={action.icon} size={24} color={Colors.dark.outline} style={styles.itemIcon} />
+                  <Text style={styles.itemTitle}>{action.title}</Text>
+                </TouchableOpacity>
+                {index < PROJECT_ACTIONS.length - 1 ? <SettingDivider /> : null}
+              </React.Fragment>
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -71,22 +108,34 @@ export default function SettingsScreen() {
   );
 }
 
-const SettingItem = ({ icon, title, subtitle, value }: any) => (
-  <View style={styles.settingRow}>
-    <View style={styles.settingLabel}>
-      <MaterialIcons name={icon} size={24} color={Colors.dark.tertiary} style={styles.itemIcon} />
-      <View>
-        <Text style={styles.itemTitle}>{title}</Text>
-        <Text style={styles.itemSub}>{subtitle}</Text>
+function SettingItem({ setting }: { setting: ToggleSetting }) {
+  const activeTrackColor =
+    setting.accent === 'primary' ? Colors.dark.primaryContainer : Colors.dark.tertiaryContainer;
+  const activeThumbColor = setting.accent === 'primary' ? Colors.dark.primary : Colors.dark.tertiary;
+
+  return (
+    <View style={styles.settingRow}>
+      <View style={styles.settingLabel}>
+        <MaterialIcons
+          name={setting.icon}
+          size={24}
+          color={setting.accent === 'primary' ? Colors.dark.primary : Colors.dark.tertiary}
+          style={styles.itemIcon}
+        />
+        <View>
+          <Text style={styles.itemTitle}>{setting.title}</Text>
+          <Text style={styles.itemSub}>{setting.subtitle}</Text>
+        </View>
       </View>
+      <Switch 
+        value={setting.enabled} 
+        trackColor={{ false: '#353534', true: activeTrackColor }}
+        thumbColor={setting.enabled ? activeThumbColor : '#8f909e'}
+        disabled
+      />
     </View>
-    <Switch 
-      value={value} 
-      trackColor={{ false: '#353534', true: Colors.dark.tertiaryContainer }}
-      thumbColor={value ? Colors.dark.tertiary : '#8f909e'}
-    />
-  </View>
-);
+  );
+}
 
 const SettingDivider = () => <View style={styles.divider} />;
 
@@ -97,7 +146,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 120,
   },
   section: {
     marginBottom: 32,

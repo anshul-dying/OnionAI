@@ -1,112 +1,141 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { MaterialIcons } from '@expo/vector-icons';
+import { ThemedHeader } from '@/components/ThemedHeader';
+import { Colors } from '@/constants/theme';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+const PRINCIPLES = [
+  {
+    icon: 'shield' as const,
+    title: 'Private by default',
+    description: 'Inference runs on-device with local files and local session persistence.',
+  },
+  {
+    icon: 'cloud-off' as const,
+    title: 'Offline capable',
+    description: 'Chat remains functional without network access when model assets are available.',
+  },
+  {
+    icon: 'layers' as const,
+    title: 'Scalable architecture',
+    description: 'Routing, model management, and chat history are separated via providers and hooks.',
+  },
+];
 
-export default function TabTwoScreen() {
+const RUNTIME_NOTES = [
+  'Chat state is orchestrated through useOnionAI with mock and native execution modes.',
+  'Model and tokenizer discovery is centralized in ModelContext.',
+  'Conversation sessions are persisted by ChatHistoryContext in local storage.',
+];
+
+export default function ExploreScreen() {
+  const tabBarHeight = useBottomTabBarHeight();
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <ThemedHeader title="About OnionAI" showMenu={false} />
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 24 }]}>
+        <View style={styles.heroCard}>
+          <Text style={styles.heroTitle}>Local-first AI assistant</Text>
+          <Text style={styles.heroSubtitle}>
+            OnionAI is built for private, reliable mobile AI with on-device inference and no cloud dependency.
+          </Text>
+        </View>
+
+        <Text style={styles.sectionTitle}>Core principles</Text>
+        {PRINCIPLES.map((item) => (
+          <View key={item.title} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <MaterialIcons name={item.icon} size={18} color={Colors.dark.tertiary} />
+              <Text style={styles.cardTitle}>{item.title}</Text>
+            </View>
+            <Text style={styles.cardDescription}>{item.description}</Text>
+          </View>
+        ))}
+
+        <Text style={styles.sectionTitle}>Runtime notes</Text>
+        <View style={styles.card}>
+          {RUNTIME_NOTES.map((note) => (
+            <View key={note} style={styles.noteRow}>
+              <MaterialIcons name="check-circle" size={14} color={Colors.dark.tertiary} />
+              <Text style={styles.noteText}>{note}</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.background,
   },
-  titleContainer: {
-    flexDirection: 'row',
+  scrollContent: {
+    padding: 20,
+    gap: 12,
+  },
+  heroCard: {
+    borderRadius: 28,
+    padding: 24,
+    backgroundColor: Colors.dark.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  heroTitle: {
+    color: Colors.dark.onSurface,
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  heroSubtitle: {
+    color: Colors.dark.onSurfaceVariant,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  sectionTitle: {
+    marginTop: 8,
+    marginBottom: 4,
+    color: Colors.dark.outline,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+  },
+  card: {
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: Colors.dark.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     gap: 8,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardTitle: {
+    color: Colors.dark.onSurface,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cardDescription: {
+    color: Colors.dark.onSurfaceVariant,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  noteText: {
+    flex: 1,
+    color: Colors.dark.onSurfaceVariant,
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text, Platform, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ThemedHeader } from '@/components/ThemedHeader';
 import { MessageBubble } from '@/components/Chat/MessageBubble';
 import { InputArea } from '@/components/Chat/InputArea';
@@ -50,6 +51,7 @@ function ChatRuntime({
   useMock: boolean;
   initialMessages: Parameters<typeof useOnionAI>[0]['initialMessages'];
 }) {
+  const router = useRouter();
   const { updateActiveSessionMessages } = useChatHistory();
   const { messages, sendMessage, isThinking, isMockMode, errorMessage } = useOnionAI({
     useMock,
@@ -71,7 +73,7 @@ function ChatRuntime({
 
   const handleSend = async () => {
     if (!inputValue.trim() || isThinking) return;
-    sendMessage(inputValue);
+    await sendMessage(inputValue);
     setInputValue('');
   };
 
@@ -81,6 +83,7 @@ function ChatRuntime({
       <ThemedHeader 
         title="OnionAI" 
         subtitle={isMockMode ? 'Mock Mode' : (modelUri?.split('/').pop() ?? 'Local Mode')}
+        onMenuPress={() => router.push('/history')}
       />
       
       <KeyboardAvoidingView
@@ -133,6 +136,7 @@ function ChatRuntime({
           value={inputValue}
           onChangeText={setInputValue}
           onSend={handleSend}
+          disabled={Boolean(isThinking)}
         />
       </KeyboardAvoidingView>
     </View>

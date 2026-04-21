@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, TextInput } from 'react-native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { ThemedHeader } from '@/components/ThemedHeader';
 import { Colors } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ function formatBytes(size: number | null) {
 }
 
 export default function ModelsScreen() {
+  const tabBarHeight = useBottomTabBarHeight();
   const { modelUri, setModelUri, tokenizerUri, setTokenizerUri, tokenizerConfigUri, isLoadingAssets } = useModelContext();
   const [draftModelUri, setDraftModelUri] = React.useState(modelUri ?? '');
   const [draftTokenizerUri, setDraftTokenizerUri] = React.useState(tokenizerUri ?? '');
@@ -134,7 +136,7 @@ export default function ModelsScreen() {
         rightIcons={[{ name: 'refresh', onPress: applyDefaultPaths }]}
       />
       
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 24 }]}>
         <View style={styles.heroCard}>
           <View style={styles.heroContent}>
             <View style={styles.statusBadge}>
@@ -259,7 +261,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 120,
   },
   heroCard: {
     backgroundColor: Colors.dark.surfaceContainerLow,

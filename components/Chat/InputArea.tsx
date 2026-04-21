@@ -2,7 +2,6 @@ import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Platform, Keyboard } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 interface InputAreaProps {
@@ -10,14 +9,15 @@ interface InputAreaProps {
   onChangeText: (text: string) => void;
   onSend: () => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 export const InputArea: React.FC<InputAreaProps> = ({
   value,
   onChangeText,
   onSend,
   placeholder = 'Message OnionAI...',
+  disabled = false,
 }) => {
-  const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const [isKeyboardVisible, setIsKeyboardVisible] = React.useState(false);
 
@@ -32,7 +32,9 @@ export const InputArea: React.FC<InputAreaProps> = ({
     };
   }, []);
 
-  const bottomPadding = isKeyboardVisible ? 8 : Math.max(8, tabBarHeight - insets.bottom + 8);
+  const bottomPadding = isKeyboardVisible
+    ? 8
+    : Math.max(12, Math.min(24, tabBarHeight - 48));
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
@@ -44,13 +46,17 @@ export const InputArea: React.FC<InputAreaProps> = ({
           placeholder={placeholder}
           placeholderTextColor="rgba(197, 197, 212, 0.5)"
           multiline
+          editable={!disabled}
         />
 
         <View style={styles.rightActions}>
           <TouchableOpacity 
-            style={[styles.sendButton, !value.trim() && styles.sendButtonDisabled]} 
+            style={[styles.sendButton, (!value.trim() || disabled) && styles.sendButtonDisabled]} 
             onPress={onSend}
-            disabled={!value.trim()}
+            disabled={!value.trim() || disabled}
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            accessibilityHint="Sends your message to OnionAI"
           >
             <MaterialIcons name="send" size={20} color={Colors.dark.onPrimary} />
           </TouchableOpacity>

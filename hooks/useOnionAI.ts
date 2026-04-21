@@ -78,6 +78,8 @@ export function useOnionAI({
   const [messages, setMessages] = useState<Message[]>(
     initialMessages && initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE]
   );
+  const [mockIsGenerating, setMockIsGenerating] = useState(false);
+  const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null);
   const [activeTokenizerUri, setActiveTokenizerUri] = useState<string | null>(tokenizerUri ?? null);
   const [isTokenizerFallbackExhausted, setIsTokenizerFallbackExhausted] = useState(false);
   const messageCounterRef = useRef(0);
@@ -202,17 +204,26 @@ export function useOnionAI({
     };
 
     setMessages(prev => [...prev, userMessage]);
+    setRuntimeErrorMessage(null);
 
     if (useMock) {
-      const response = await MockLLMService.generateResponse(text);
-      const aiMessage: Message = {
-        id: createMessageId(),
-        text: response,
-        sender: 'ai',
-        senderName: 'OnionAI',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages(prev => [...prev, aiMessage]);
+      setMockIsGenerating(true);
+      try {
+        const response = await MockLLMService.generateResponse(text);
+        const aiMessage: Message = {
+          id: createMessageId(),
+          text: response,
+          sender: 'ai',
+          senderName: 'OnionAI',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      } catch (err) {
+        console.error('Mock LLM Error:', err);
+        setRuntimeErrorMessage(err instanceof Error ? err.message : 'Failed to generate mock response.');
+      } finally {
+        setMockIsGenerating(false);
+      }
     } else if (llm && llm.sendMessage) {
       try {
         const aiMessageId = createMessageId();
@@ -231,9 +242,11 @@ export function useOnionAI({
         await llm.sendMessage(text);
       } catch (err) {
         console.error("ExecuTorch Error:", err);
+        setRuntimeErrorMessage(err instanceof Error ? err.message : 'Failed to generate native response.');
       }
     } else {
       console.warn("LLM not ready yet. Check logs for load errors.");
+      setRuntimeErrorMessage('LLM is not ready yet. Check model/tokenizer paths.');
     }
   }, [useMock, llm]);
 
@@ -274,8 +287,8 @@ export function useOnionAI({
   return {
     messages,
     sendMessage,
-    isThinking: useMock ? false : llm?.isGenerating,
+    isThinking: useMock ? mockIsGenerating : llm?.isGenerating,
     isMockMode: useMock,
-    errorMessage: llm?.error?.message ?? null,
+    errorMessage: runtimeErrorMessage ?? llm?.error?.message ?? null,
   };
 }
