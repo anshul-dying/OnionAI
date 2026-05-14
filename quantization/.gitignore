@@ -1,0 +1,5 @@
+*.safetensors
+*.gguf
+*.pte
+venv/
+*.original.md

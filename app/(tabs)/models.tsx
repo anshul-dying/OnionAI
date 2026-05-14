@@ -26,7 +26,17 @@ function formatBytes(size: number | null) {
 
 export default function ModelsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
-  const { modelUri, setModelUri, tokenizerUri, setTokenizerUri, tokenizerConfigUri, isLoadingAssets } = useModelContext();
+  const { 
+    modelUri, 
+    setModelUri, 
+    tokenizerUri, 
+    setTokenizerUri, 
+    tokenizerConfigUri, 
+    availableModels,
+    switchModel,
+    scanForModels,
+    isLoadingAssets 
+  } = useModelContext();
   const [draftModelUri, setDraftModelUri] = React.useState(modelUri ?? '');
   const [draftTokenizerUri, setDraftTokenizerUri] = React.useState(tokenizerUri ?? '');
   const [modelSize, setModelSize] = React.useState<number | null>(null);
@@ -115,12 +125,8 @@ export default function ModelsScreen() {
   };
 
   const applyDefaultPaths = async () => {
-    const tokenizerPath = (await FileSystem.getInfoAsync(DEFAULT_TOKENIZER_PATH)).exists
-      ? DEFAULT_TOKENIZER_PATH
-      : DEFAULT_TOKENIZER_BIN_PATH;
-    setModelUri(DEFAULT_MODEL_PATH);
-    setTokenizerUri(tokenizerPath);
-    Alert.alert('Default paths applied', 'Using /storage/emulated/0/Android/data/com.anonymous.onionAI/files defaults.');
+    await scanForModels();
+    Alert.alert('Scan complete', `Found ${availableModels.length} potential models.`);
   };
 
   const clearPaths = () => {
@@ -157,15 +163,71 @@ export default function ModelsScreen() {
                 <Text style={styles.outlineButtonText}>Clear</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.primaryButton} onPress={applyDefaultPaths}>
-                <Text style={styles.primaryButtonText}>Use Defaults</Text>
+                <Text style={styles.primaryButtonText}>Scan Storage</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
+        {availableModels.length > 0 && (
+          <>
+            <View style={styles.sectionHeaderSimple}>
+              <Text style={styles.sectionTitle}>Available Models</Text>
+            </View>
+            <View style={styles.grid}>
+              {availableModels.map((model) => (
+                <TouchableOpacity 
+                  key={model.id} 
+                  style={[
+                    styles.modelCard, 
+                    model.modelUri === modelUri && { borderColor: Colors.dark.tertiary, borderWidth: 2 }
+                  ]}
+                  onPress={() => switchModel(model)}
+                >
+                  <View style={styles.fileRow}>
+                    <View style={styles.fileHeader}>
+                      <MaterialIcons 
+                        name="memory" 
+                        size={20} 
+                        color={model.modelUri === modelUri ? Colors.dark.tertiary : Colors.dark.outline} 
+                      />
+                      <Text style={styles.modelName}>{model.name}</Text>
+                    </View>
+                    {model.modelUri === modelUri && (
+                      <View style={styles.activeBadge}>
+                        <Text style={styles.activeText}>Active</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.filePath} numberOfLines={1} ellipsizeMode="middle">
+                    {model.modelUri}
+                  </Text>
+                  <View style={styles.cardFooter}>
+                    <View style={styles.downloadedBadge}>
+                      <MaterialIcons 
+                        name={model.tokenizerUri ? "check-circle" : "warning"} 
+                        size={14} 
+                        color={model.tokenizerUri ? Colors.dark.tertiary : "#ff9800"} 
+                      />
+                      <Text style={[
+                        styles.downloadedText,
+                        !model.tokenizerUri && { color: "#ff9800" }
+                      ]}>
+                        {model.tokenizerUri ? "Tokenizer found" : "Tokenizer missing"}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={{ height: 32 }} />
+          </>
+        )}
+
         <View style={styles.sectionHeaderSimple}>
-          <Text style={styles.sectionTitle}>Current files</Text>
+          <Text style={styles.sectionTitle}>Active File Details</Text>
         </View>
+
 
         <View style={styles.modelCard}>
           <View style={styles.fileRow}>
@@ -255,6 +317,18 @@ export default function ModelsScreen() {
 }
 
 const styles = StyleSheet.create({
+  activeBadge: {
+    backgroundColor: Colors.dark.tertiary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  activeText: {
+    color: Colors.dark.onTertiary,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.dark.background,

@@ -33,6 +33,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# caveman backups
+*.original.md
+
 # typescript
 *.tsbuildinfo
 
@@ -42,6 +45,11 @@ app-example
 /ios
 /android
 
-
 *.pte
 *.model
+
+.vscode/
+
+.venv/
+venv/
+*.bin

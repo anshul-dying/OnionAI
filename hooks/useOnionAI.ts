@@ -139,11 +139,18 @@ export function useOnionAI({
     initialUseMock || !nativeUseLLM || !modelUri || !activeTokenizerUri || !tokenizerConfigUri;
   const useMockRef = useRef<boolean>(computedUseMock);
   const useMock = useMockRef.current;
+  
+  const modelId = useMemo(() => {
+    if (!modelUri) return 'unknown';
+    const filename = modelUri.split('/').pop() || 'model.pte';
+    return filename.replace('.pte', '').replace('.pth', '');
+  }, [modelUri]);
+
   const llm = useMock
     ? useMockLLM()
     : nativeUseLLM({
         model: {
-          modelName: 'llama-3.2-1b',
+          modelName: modelId,
           modelSource: modelUri || '',
           tokenizerSource: activeTokenizerUri || '',
           tokenizerConfigSource: tokenizerConfigUri || '',
@@ -219,6 +226,9 @@ export function useOnionAI({
     // Add user message to UI immediately
     const userMessage: Message = {
       id: createMessageId(),
+
+
+      
       text,
       sender: 'user',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -245,7 +255,7 @@ export function useOnionAI({
       } finally {
         setMockIsGenerating(false);
       }
-    } else if (llm && llm.sendMessage) {
+    } else if (llm && llm.sendMessage && !llm.error) {
       try {
         const aiMessageId = createMessageId();
         pendingNativeAiMessageIdRef.current = aiMessageId;
@@ -266,8 +276,9 @@ export function useOnionAI({
         setRuntimeErrorMessage(err instanceof Error ? err.message : 'Failed to generate native response.');
       }
     } else {
-      console.warn("LLM not ready yet. Check logs for load errors.");
-      setRuntimeErrorMessage('LLM is not ready yet. Check model/tokenizer paths.');
+      const errorMsg = llm?.error?.message ?? 'LLM is not ready yet. Check model/tokenizer paths.';
+      console.warn("LLM not ready yet:", errorMsg);
+      setRuntimeErrorMessage(errorMsg);
     }
   }, [useMock, llm]);
 
