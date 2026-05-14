@@ -1,0 +1,11 @@
+huggingface-hub
+torch
+transformers
+accelerate
+bitsandbytes
+scipy
+pandas
+executorch
+torchao
+matplotlib
+seaborn

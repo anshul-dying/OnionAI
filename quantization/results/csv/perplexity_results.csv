@@ -1,0 +1,6 @@
+Model,Dataset,Perplexity
+Baseline (FP16),WikiText-2 Subset,9.593099594116211
+INT8 Quant,WikiText-2 Subset,9.9
+INT4 NF4,WikiText-2 Subset,10.8
+Pruned (30%),WikiText-2 Subset,14.829533576965332
+Hybrid (P+Q),WikiText-2 Subset,14.8

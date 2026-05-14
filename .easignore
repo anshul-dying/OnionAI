@@ -1,0 +1,19 @@
+# Keep EAS uploads small; on-device model files are not bundled in cloud builds.
+
+# Dependency/build artifacts
+node_modules/
+android/build/
+android/app/build/
+ios/build/
+.expo/
+dist/
+web-build/
+
+# Local quantization workspace (not needed for app build)
+quantization/
+
+# Large local model artifacts
+assets/*.pte
+*.pte
+*.gguf
+*.safetensors
