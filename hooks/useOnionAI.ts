@@ -1,15 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { MockLLMService, Message } from '@/scripts/mock-llm';
+import { MockLLMService, Message } from '../scripts/mock-llm';
 import * as FileSystem from 'expo-file-system/legacy';
 
-// Mock hook for when ExecuTorch is not available
-const useMockLLM = () => ({
-  response: '',
-  isGenerating: false,
-  sendMessage: async (text: string) => {
-    console.warn('Real LLM not available, sendMessage ignored.');
-  },
-});
 type NativeUseLLM = (options: {
   model: {
     modelName: string;
@@ -26,6 +18,15 @@ type NativeUseLLM = (options: {
   generate?: (messages: any[]) => Promise<string>;
   error?: { message?: string; code?: number };
 };
+
+// Mock hook for when ExecuTorch is not available
+const useMockLLM = (): ReturnType<NativeUseLLM> => ({
+  response: '',
+  isGenerating: false,
+  sendMessage: async (text: string) => {
+    console.warn('Real LLM not available, sendMessage ignored.');
+  },
+});
 
 let cachedNativeUseLLM: NativeUseLLM | null | undefined;
 let executorchInitialized = false;
@@ -324,7 +325,7 @@ export function useOnionAI({
         message.id === targetId
           ? {
               ...message,
-              text: llm.response,
+              text: llm.response ?? '',
             }
           : message
       )
