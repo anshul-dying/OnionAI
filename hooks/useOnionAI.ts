@@ -10,7 +10,6 @@ const useMockLLM = () => ({
     console.warn('Real LLM not available, sendMessage ignored.');
   },
 });
-
 type NativeUseLLM = (options: {
   model: {
     modelName: string;
@@ -18,11 +17,13 @@ type NativeUseLLM = (options: {
     tokenizerSource: string;
     tokenizerConfigSource: string;
   };
+  maxSeqLen?: number;
   preventLoad: boolean;
 }) => {
   response?: string;
   isGenerating?: boolean;
   sendMessage?: (text: string) => Promise<void>;
+  generate?: (messages: any[]) => Promise<string>;
   error?: { message?: string; code?: number };
 };
 
@@ -79,7 +80,7 @@ export interface UseOnionAIProps {
 
 const WELCOME_MESSAGE: Message = {
   id: 'welcome',
-  text: "Hello. I am OnionAI, running locally on your hardware. My responses are private, secure, and require no internet connection. How can I assist your workflow today?",
+  text: "Hello. I am OnionAI, made by TY_A_GROUP16, running locally on your hardware. My responses are private, secure, and require no internet connection. How can I assist your workflow today?",
   sender: 'ai',
   senderName: 'OnionAI',
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -155,6 +156,7 @@ export function useOnionAI({
           tokenizerSource: activeTokenizerUri || '',
           tokenizerConfigSource: tokenizerConfigUri || '',
         },
+        maxSeqLen: 1024,
         preventLoad: false,
       });
 
@@ -237,6 +239,20 @@ export function useOnionAI({
     setMessages(prev => [...prev, userMessage]);
     setRuntimeErrorMessage(null);
 
+    // Easter Egg: Maggie Healthy
+    const normalizedText = text.toLowerCase();
+    if (normalizedText.includes('maggie') && normalizedText.includes('healthy')) {
+      const aiMessage: Message = {
+        id: createMessageId(),
+        text: "Yes, Maggie is healthy and officially approved by TY_A_GROUP16! 🍜",
+        sender: 'ai',
+        senderName: 'OnionAI',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages(prev => [...prev, aiMessage]);
+      return;
+    }
+
     if (useMock) {
       setMockIsGenerating(true);
       try {
@@ -255,7 +271,7 @@ export function useOnionAI({
       } finally {
         setMockIsGenerating(false);
       }
-    } else if (llm && llm.sendMessage && !llm.error) {
+    } else if (llm && (llm.generate || llm.sendMessage) && !llm.error) {
       try {
         const aiMessageId = createMessageId();
         pendingNativeAiMessageIdRef.current = aiMessageId;
@@ -270,7 +286,18 @@ export function useOnionAI({
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
-        await llm.sendMessage(text);
+
+        if (llm.generate) {
+          // Truncation fix: Many .pte models are compiled with 64 or 128 token limits.
+          // Minimize prompt to leave space for output.
+          const nativeMessages = [
+            { role: 'system' as const, content: 'Name: OnionAI (TY_A_GROUP16). Brief.' },
+            { role: 'user' as const, content: text }
+          ];
+          await llm.generate(nativeMessages);
+        } else {
+          await llm.sendMessage(text);
+        }
       } catch (err) {
         console.error("ExecuTorch Error:", err);
         setRuntimeErrorMessage(err instanceof Error ? err.message : 'Failed to generate native response.');
@@ -280,7 +307,7 @@ export function useOnionAI({
       console.warn("LLM not ready yet:", errorMsg);
       setRuntimeErrorMessage(errorMsg);
     }
-  }, [useMock, llm]);
+  }, [useMock, llm, messages]);
 
   // Sync real LLM response into the pending AI message
   useEffect(() => {

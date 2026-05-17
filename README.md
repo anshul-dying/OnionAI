@@ -105,6 +105,25 @@ ExecuTorch requires model files to be accessible on the device storage.
   npm run lint
   ```
 
+### Building
+
+- **Build APK (Android Preview):**
+  ```bash
+  npx eas build -p android --profile preview
+  ```
+  *Generates an installable APK for testing on physical devices.*
+
+- **Build AAB (Android Production):**
+  ```bash
+  npx eas build -p android --profile production
+  ```
+  *Generates a production-ready Android App Bundle.*
+
+- **EAS Login:**
+  ```bash
+  npx eas-cli login
+  ```
+
 ### Mock Mode
 If you don't have a physical device or native setup ready, the app automatically falls back to a simulated LLM. This allows you to test the UI, history management, and theming without needing a GPU-capable mobile device.
 
@@ -121,13 +140,17 @@ onionAI/
 │   ├── Chat/           # Messaging bubbles, input areas, system monitors
 │   └── ui/             # Themed base components
 ├── constants/          # Theme and global constants
-├── docs/               # Technical documentation
+├── docs/               # Technical documentation (SRS, Architecture)
 ├── hooks/              # Custom React hooks (AI logic, Context Providers)
 │   ├── useOnionAI.ts   # Main AI interaction hook
-│   ├── ModelContext.ts # Model asset management
-│   └── ChatHistoryContext.ts # Local persistence of chats
-├── scripts/            # Build and utility scripts
-└── docs/               # Architecture and system documentation
+│   ├── ModelContext.tsx# Model asset management & scanning
+│   └── ChatHistoryContext.tsx # Local persistence of chats
+├── quantization/       # Model compression & benchmarking tools
+│   ├── scripts/        # Python scripts for PT2E/ExecuTorch export
+│   ├── results/        # Metrics and plots from benchmarks
+│   └── research_paper/ # LaTeX source for project publication
+├── scripts/            # Utility scripts (Mock LLM, project reset)
+└── .gemini/            # AI Agent configuration and custom skills
 ```
 
 ---

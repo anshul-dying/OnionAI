@@ -1,0 +1,15 @@
+[commands.build-apk]
+description = "Build Android APK using EAS preview profile"
+command = "npx eas build -p android --profile preview"
+
+[commands.build-aab]
+description = "Build Android App Bundle for production"
+command = "npx eas build -p android --profile production"
+
+[commands.eas-login]
+description = "Login to Expo Application Services"
+command = "npx eas-cli login"
+
+[commands.eas-status]
+description = "Check status of EAS builds"
+command = "npx eas build:list --limit 5"
