@@ -19,15 +19,38 @@ const MOCK_RESPONSES = [
 ];
 
 export class MockLLMService {
-  static async generateResponse(input: string): Promise<string> {
+  static async generateResponse(input: string, systemPrompt?: string, temperature?: number): Promise<string> {
     // Simulate thinking delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
+    let response = "";
+    
     // Return a random mock response or something based on input
     if (input.toLowerCase().includes('log')) {
-      return MOCK_RESPONSES[0];
+      response = MOCK_RESPONSES[0];
+    } else {
+      response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
     }
+
+    // Apply simulation rules driven by the System Prompt
+    const normPrompt = (systemPrompt || '').toLowerCase();
     
-    return MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
+    if (normPrompt.includes('brief') || normPrompt.includes('concise')) {
+      const sentence = response.split('.')[0];
+      response = sentence ? `${sentence}. (Brief Mode)` : response;
+    } else if (normPrompt.includes('code') || normPrompt.includes('coding') || normPrompt.includes('expert')) {
+      response = `\`\`\`typescript\n// Workstation Code block simulated via system prompt\nconst localConfig = {\n  system: "OnionAI",\n  prompt: "${systemPrompt?.substring(0, 25)}...",\n  temp: ${temperature ?? 0.7}\n};\nconsole.log(localConfig);\n\`\`\``;
+    } else if (normPrompt.includes('creative')) {
+      response = `✨ [Creative Mode Active] ${response} Let your imagination explore local computing borders! ✨`;
+    }
+
+    // If high temperature, add extra creative emojis
+    if (temperature && temperature > 1.2) {
+      response = `🌪️🔥🚀 ${response} 🌀🔮✨`;
+    } else if (temperature && temperature < 0.2) {
+      response = `[Deterministic] ${response}`;
+    }
+
+    return response;
   }
 }

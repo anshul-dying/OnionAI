@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MockLLMService, Message } from '../scripts/mock-llm';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useSettings } from './SettingsContext';
 
 type NativeUseLLM = (options: {
   model: {
@@ -13,9 +14,15 @@ type NativeUseLLM = (options: {
   preventLoad: boolean;
 }) => {
   response?: string;
+  isReady?: boolean;
   isGenerating?: boolean;
   sendMessage?: (text: string) => Promise<void>;
   generate?: (messages: any[]) => Promise<string>;
+  configure?: (config: {
+    chatConfig?: { systemPrompt?: string };
+    toolsConfig?: unknown;
+    generationConfig?: { temperature?: number; topp?: number };
+  }) => void;
   error?: { message?: string; code?: number };
 };
 
@@ -95,6 +102,7 @@ export function useOnionAI({
   initialMessages,
   onMessagesChange,
 }: UseOnionAIProps = {}) {
+  const { systemPrompt, temperature, topp } = useSettings();
   const [messages, setMessages] = useState<Message[]>(
     initialMessages && initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE]
   );
@@ -158,6 +166,28 @@ export function useOnionAI({
         preventLoad: computedUseMock,
       })
     : useMockLLM();
+
+  // Dynamic Parameter Syncing inside ExecuTorch
+  useEffect(() => {
+    if (computedUseMock || !llm || !llm.configure || llm.error) {
+      return;
+    }
+    if (llm.isReady) {
+      try {
+        llm.configure({
+          chatConfig: {
+            systemPrompt: systemPrompt,
+          },
+          generationConfig: {
+            temperature: temperature,
+            topp: topp,
+          },
+        });
+      } catch (err) {
+        console.warn('Failed to configure ExecuTorch engine:', err);
+      }
+    }
+  }, [llm?.isReady, systemPrompt, temperature, topp, computedUseMock]);
 
   useEffect(() => {
     if (computedUseMock || !llm?.error || isTokenizerFallbackExhausted) {
@@ -252,7 +282,7 @@ export function useOnionAI({
     if (computedUseMock) {
       setMockIsGenerating(true);
       try {
-        const response = await MockLLMService.generateResponse(text);
+        const response = await MockLLMService.generateResponse(text, systemPrompt, temperature);
         const aiMessage: Message = {
           id: createMessageId(),
           text: response,
@@ -291,8 +321,10 @@ export function useOnionAI({
             { role: 'user' as const, content: text }
           ];
           await llm.generate(nativeMessages);
-        } else {
+        } else if (llm.sendMessage) {
           await llm.sendMessage(text);
+        } else {
+          console.warn('Native execution interface is unavailable (both generate and sendMessage are missing).');
         }
       } catch (err) {
         console.error("ExecuTorch Error:", err);

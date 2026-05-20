@@ -7,6 +7,8 @@ export interface ModelInfo {
   modelUri: string;
   tokenizerUri: string | null;
   tokenizerConfigUri: string | null;
+  size?: number | null;
+  sizeFormatted?: string;
 }
 
 interface ModelContextType {
@@ -18,6 +20,7 @@ interface ModelContextType {
   setTokenizerUri: (uri: string | null) => void;
   switchModel: (model: ModelInfo) => Promise<void>;
   scanForModels: () => Promise<void>;
+  deleteModel: (model: ModelInfo) => Promise<void>;
   isLoadingAssets: boolean;
   importCustomFile: (uri: string | null, type: 'model' | 'tokenizer') => Promise<string | null>;
 }
@@ -31,6 +34,7 @@ const ModelContext = createContext<ModelContextType>({
   setTokenizerUri: () => {},
   switchModel: async () => {},
   scanForModels: async () => {},
+  deleteModel: async () => {},
   isLoadingAssets: true,
   importCustomFile: async () => null,
 });
@@ -54,11 +58,26 @@ export function ModelProvider({ children }: { children: ReactNode }) {
       const searchDirectories = Array.from(new Set([
         `file:///storage/emulated/${userId}/Android/media/${pkgName}`,
         'file:///storage/emulated/0/Android/media/com.anonymous.onionAI',
+        `file:///storage/emulated/${userId}/onionAI`,
+        'file:///storage/emulated/0/onionAI',
+        `${appPrivateFolder}imported-assets`,
       ]));
 
-      const modelFiles = ['model.pte', 'Llama-3.2-1B-Instruct.pte', 'qwen-int4.pte', 'qwen-int8.pte'];
+      const modelFiles = ['model.pte', 'Llama-3.2-1B-Instruct.pte', 'qwen-int4.pte', 'qwen-int8.pte', 'gemma-3-1b-int4.pte'];
       const tokenizerFiles = ['tokenizer.json', 'tokenizer.bin', 'tokenizer.model'];
       const foundModels: ModelInfo[] = [];
+
+      function formatBytes(size: number | null) {
+        if (!size || size <= 0) return 'unknown';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let value = size;
+        let unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.length - 1) {
+          value /= 1024;
+          unitIndex += 1;
+        }
+        return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+      }
 
       console.log('--- Starting Model Scan ---');
       for (const dir of searchDirectories) {
@@ -86,13 +105,21 @@ export function ModelProvider({ children }: { children: ReactNode }) {
                 const modelPath = `${path}/${modelFile}`;
                 const tokenizerPath = tokenizerFile ? `${path}/${tokenizerFile}` : null;
                 
+                let sizeVal: number | null = null;
+                try {
+                  const mInfo = await FileSystem.getInfoAsync(modelPath);
+                  sizeVal = mInfo.exists && typeof mInfo.size === 'number' ? mInfo.size : null;
+                } catch (e) {}
+
                 console.log(`[SCAN] FOUND: ${modelFile} at ${path}`);
                 foundModels.push({
                   id: modelPath,
-                  name: folderName === pkgName || folderName === 'onionAI' ? modelFile : folderName,
+                  name: folderName === pkgName || folderName === 'onionAI' || folderName === 'imported-assets' ? modelFile : folderName,
                   modelUri: modelPath,
                   tokenizerUri: tokenizerPath,
                   tokenizerConfigUri: dirContents.includes('tokenizer_config.json') ? `${path}/tokenizer_config.json` : null,
+                  size: sizeVal,
+                  sizeFormatted: sizeVal ? formatBytes(sizeVal) : 'unknown',
                 });
               }
             } catch (e) {
@@ -210,6 +237,36 @@ export function ModelProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteModel = async (model: ModelInfo) => {
+    setIsLoadingAssets(true);
+    try {
+      if (model.modelUri) {
+        const info = await FileSystem.getInfoAsync(model.modelUri);
+        if (info.exists) {
+          await FileSystem.deleteAsync(model.modelUri, { idempotent: true });
+          console.log(`[DELETE] Deleted model weights: ${model.modelUri}`);
+        }
+      }
+      if (model.tokenizerUri && shouldCopyToPrivateStorage(model.tokenizerUri)) {
+        const info = await FileSystem.getInfoAsync(model.tokenizerUri);
+        if (info.exists) {
+          await FileSystem.deleteAsync(model.tokenizerUri, { idempotent: true });
+          console.log(`[DELETE] Deleted tokenizer: ${model.tokenizerUri}`);
+        }
+      }
+      if (modelUri === model.modelUri) {
+        setModelUri(null);
+        setTokenizerUri(null);
+        setTokenizerConfigUri(null);
+      }
+      await scanForModels();
+    } catch (error) {
+      console.error('Delete error:', error);
+    } finally {
+      setIsLoadingAssets(false);
+    }
+  };
+
   async function importCustomFile(uri: string | null, type: 'model' | 'tokenizer'): Promise<string | null> {
     if (!uri) return null;
     setIsLoadingAssets(true);
@@ -224,11 +281,16 @@ export function ModelProvider({ children }: { children: ReactNode }) {
       await FileSystem.copyAsync({ from: uri, to: destinationPath });
       
       if (type === 'model') {
-        setModelUri(destinationPath);
+        const runtimePath = await ensurePrivateReadableCopy(destinationPath, fileName.replace(/\.[^/.]+$/, ""));
+        setModelUri(runtimePath);
+        await scanForModels();
+        return runtimePath;
       } else {
-        setTokenizerUri(destinationPath);
+        const runtimePath = await ensurePrivateReadableCopy(destinationPath, 'custom_tokenizer');
+        setTokenizerUri(runtimePath);
+        await scanForModels();
+        return runtimePath;
       }
-      return destinationPath;
     } catch (e) {
       console.error(`[IMPORT] Failed to import custom ${type} file:`, e);
       if (type === 'model') {
@@ -267,6 +329,7 @@ export function ModelProvider({ children }: { children: ReactNode }) {
       setTokenizerUri,
       switchModel,
       scanForModels,
+      deleteModel,
       isLoadingAssets,
       importCustomFile
     }}>

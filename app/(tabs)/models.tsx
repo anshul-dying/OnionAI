@@ -31,6 +31,7 @@ export default function ModelsScreen() {
     availableModels,
     switchModel,
     scanForModels,
+    deleteModel,
     isLoadingAssets,
     importCustomFile
   } = useModelContext();
@@ -167,6 +168,25 @@ export default function ModelsScreen() {
           </View>
         </View>
 
+        <View style={styles.storageAnalyzerCard}>
+          <View style={styles.fileHeader}>
+            <MaterialIcons name="storage" size={22} color={theme.tertiary} />
+            <Text style={styles.storageTitle}>Storage Analyzer</Text>
+          </View>
+          <Text style={styles.storageDesc}>
+            Offline models consume significant device storage. Clean up unused model weights to reclaim space.
+          </Text>
+          <View style={styles.storageRow}>
+            <Text style={styles.storageLabel}>Total Model Files Size</Text>
+            <Text style={styles.storageValue}>
+              {formatBytes(availableModels.reduce((acc, m) => acc + (m.size || 0), 0))}
+            </Text>
+          </View>
+          <View style={styles.storageLabelRow}>
+            <Text style={styles.storageSubLabel}>Available Offline Models: {availableModels.length}</Text>
+          </View>
+        </View>
+
         {availableModels.length > 0 && (
           <>
             <View style={styles.sectionHeaderSimple}>
@@ -191,10 +211,26 @@ export default function ModelsScreen() {
                       />
                       <Text style={styles.modelName}>{model.name}</Text>
                     </View>
-                    {model.modelUri === modelUri && (
+                    {model.modelUri === modelUri ? (
                       <View style={styles.activeBadge}>
                         <Text style={styles.activeText}>Active</Text>
                       </View>
+                    ) : (
+                      <TouchableOpacity 
+                        style={styles.deleteButton} 
+                        onPress={() => {
+                          Alert.alert(
+                            'Delete Model',
+                            `Are you sure you want to delete ${model.name}?`,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Delete', style: 'destructive', onPress: () => deleteModel(model) }
+                            ]
+                          );
+                        }}
+                      >
+                        <MaterialIcons name="delete-outline" size={20} color="#ff4d4d" />
+                      </TouchableOpacity>
                     )}
                   </View>
                   <Text style={styles.filePath} numberOfLines={1} ellipsizeMode="middle">
@@ -214,6 +250,9 @@ export default function ModelsScreen() {
                         {model.tokenizerUri ? "Tokenizer found" : "Tokenizer missing"}
                       </Text>
                     </View>
+                    {model.sizeFormatted && (
+                      <Text style={styles.sizeText}>{model.sizeFormatted}</Text>
+                    )}
                   </View>
                 </TouchableOpacity>
               ))}
@@ -315,6 +354,56 @@ export default function ModelsScreen() {
 }
 
 const createStyles = (theme: any) => StyleSheet.create({
+  storageAnalyzerCard: {
+    backgroundColor: theme.surfaceContainerLow,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 24,
+  },
+  storageTitle: {
+    color: theme.onSurface,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  storageDesc: {
+    color: theme.onSurfaceVariant,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  storageRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: theme.surfaceContainerHighest,
+    padding: 16,
+    borderRadius: 16,
+  },
+  storageLabel: {
+    color: theme.onSurface,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  storageValue: {
+    color: theme.tertiary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  storageLabelRow: {
+    marginTop: 12,
+  },
+  storageSubLabel: {
+    color: theme.onSurfaceVariant,
+    fontSize: 12,
+  },
+  deleteButton: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 77, 77, 0.1)',
+  },
   activeBadge: {
     backgroundColor: theme.tertiary,
     paddingHorizontal: 8,
