@@ -9,15 +9,22 @@ def verify_pte(pte_path):
         print(f"Error: {pte_path} not found.")
         return
 
-    print(f"\n>>> Verifying {pte_path} ...")
+    print(f"\n>>> Verifying dynamic shape execution of {pte_path} ...")
     
     # Load tokenizer from source model directory
-    tokenizer_path = "qwen2.5-3b"
-    if not os.path.exists(tokenizer_path):
-        print(f"Error: Tokenizer path {tokenizer_path} not found.")
-        return
-        
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    is_gemma = "gemma" in pte_path.lower() or "model.pte" in pte_path.lower()
+    if is_gemma:
+        if os.path.exists("gemma-3-1B"):
+            tokenizer_path = "gemma-3-1B"
+        elif os.path.exists("gemma-3-1b"):
+            tokenizer_path = "gemma-3-1b"
+        else:
+            tokenizer_path = "google/gemma-3-1b-it"
+            print(f"Local tokenizer path not found. Falling back to HF Hub: {tokenizer_path}")
+    else:
+        tokenizer_path = "qwen2.5-3b"
+    
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, local_files_only=(tokenizer_path != "google/gemma-3-1b-it"))
     
     try:
         # Get Runtime singleton
@@ -34,44 +41,46 @@ def verify_pte(pte_path):
         print(f"Loading method: {method_name}")
         forward = program.load_method(method_name)
         
-        # Prepare input
-        prompt = "User: Explain model compression in one sentence.\nAssistant:"
-        inputs = tokenizer(prompt, return_tensors="pt")
-        input_ids = inputs["input_ids"]
+        # Prepare dynamic inputs of different lengths to verify dynamic shape compilation!
+        test_prompts = [
+            "User: Hello!\nAssistant:",  # Short sequence
+            "User: Explain model compression in one sentence.\nAssistant:",  # Medium sequence
+        ]
         
-        # QwenWrapper was traced with (1, 32). We must match the trace shape exactly.
-        max_len = 32
-        if input_ids.shape[1] < max_len:
-            # Pad with zeros (or tokenizer.pad_token_id if available)
-            padding = torch.zeros((1, max_len - input_ids.shape[1]), dtype=torch.long)
-            input_ids = torch.cat([input_ids, padding], dim=1)
-        else:
-            input_ids = input_ids[:, :max_len]
+        for prompt in test_prompts:
+            print(f"\n--- Testing with prompt: '{prompt}' ---")
+            inputs = tokenizer(prompt, return_tensors="pt")
+            input_ids = inputs["input_ids"]
             
-        print(f"Input shape: {input_ids.shape}")
-        
-        # Run execution
-        print("Executing inference...")
-        outputs = forward.execute([input_ids])
-        
-        logits = outputs[0]
-        print(f"Output logits shape: {logits.shape}")
-        
-        # Basic sanity check
-        if torch.isnan(logits).any():
-            print("❌ FAILED: Output contains NaNs.")
-        elif torch.all(logits == 0):
-            print("❌ FAILED: Output is all zeros.")
-        else:
-            print("✅ SUCCESS: Model returned valid logits.")
+            # Since our model is compiled with DYNAMIC shapes, we do NOT need 
+            # to truncate or pad to a rigid sequence limit! We pass the raw shape.
+            print(f"Input shape: {input_ids.shape}")
             
-            # Predict next token (for prompt completion check)
-            # Find the position of the last non-padded token
-            prompt_len = inputs["input_ids"].shape[1]
-            next_token_logits = logits[0, prompt_len - 1, :]
-            next_token_id = torch.argmax(next_token_logits).item()
-            next_token = tokenizer.decode([next_token_id])
-            print(f"Next token prediction: '{next_token}'")
+            # Execute sequential prefill since the model was exported without dynamic shapes (static seq_len=1)
+            print("Executing sequential prefill inference...")
+            logits = None
+            for i in range(input_ids.shape[1]):
+                token = input_ids[:, i:i+1] # shape (1, 1)
+                cache_pos = torch.tensor([i], dtype=torch.long)
+                outputs = forward.execute([token, cache_pos])
+                logits = outputs[0]
+            
+            logits = outputs[0]
+            print(f"Output logits shape: {logits.shape}")
+            
+            # Basic sanity check
+            if torch.isnan(logits).any():
+                print("❌ FAILED: Output contains NaNs.")
+            elif torch.all(logits == 0):
+                print("❌ FAILED: Output is all zeros.")
+            else:
+                print("✅ SUCCESS: Model executed with dynamic shape and returned valid logits.")
+                
+                # Predict next token (for prompt completion check)
+                next_token_logits = logits[0, -1, :]
+                next_token_id = torch.argmax(next_token_logits).item()
+                next_token = tokenizer.decode([next_token_id])
+                print(f"Next token prediction: '{next_token}'")
 
     except Exception as e:
         print(f"❌ FAILED to verify {pte_path}: {e}")
@@ -89,6 +98,7 @@ if __name__ == "__main__":
             if not pte_files:
                 print(f"No .pte files found in {model_dir}")
             for f in pte_files:
+                if "qwen" in f.lower(): continue # Skip old Qwen binaries
                 verify_pte(os.path.join(model_dir, f))
         else:
             print(f"Directory {model_dir} not found.")

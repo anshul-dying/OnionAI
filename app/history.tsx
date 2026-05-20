@@ -3,13 +3,16 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert 
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedHeader } from '@/components/ThemedHeader';
-import { Colors } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useChatHistory } from '@/hooks/ChatHistoryContext';
+import { useTheme } from '@/hooks/use-theme-color';
 
 export default function HistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = createStyles(theme);
+  
   const { sessions, selectSession, createNewSession, deleteSession } = useChatHistory();
   const [query, setQuery] = useState('');
 
@@ -73,13 +76,13 @@ export default function HistoryScreen() {
         rightIcons={[{ name: 'add', onPress: createSessionAndOpen }]}
       />
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}>
         <View style={styles.searchContainer}>
-          <MaterialIcons name="search" size={20} color={Colors.dark.onSurfaceVariant} style={styles.searchIcon} />
+          <MaterialIcons name="search" size={20} color={theme.onSurfaceVariant} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search conversations..."
-            placeholderTextColor={Colors.dark.onSurfaceVariant}
+            placeholderTextColor={theme.onSurfaceVariant}
             value={query}
             onChangeText={setQuery}
           />
@@ -87,7 +90,7 @@ export default function HistoryScreen() {
 
         {filteredSessions.length === 0 ? (
           <View style={styles.emptyState}>
-            <MaterialIcons name="history" size={28} color={Colors.dark.outline} />
+            <MaterialIcons name="history" size={28} color={theme.outline} />
             <Text style={styles.emptyTitle}>No conversations found</Text>
             <Text style={styles.emptySub}>Start a new chat to populate your local history.</Text>
           </View>
@@ -113,7 +116,7 @@ export default function HistoryScreen() {
                         confirmDeleteSession(session.id);
                       }}
                     >
-                      <MaterialIcons name="delete-outline" size={18} color={Colors.dark.error} />
+                      <MaterialIcons name="delete-outline" size={18} color={theme.error} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -128,16 +131,16 @@ export default function HistoryScreen() {
       </ScrollView>
 
       <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24 }]} onPress={createSessionAndOpen}>
-        <MaterialIcons name="add" size={32} color={Colors.dark.onPrimary} />
+        <MaterialIcons name="add" size={32} color={theme.onPrimary} />
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useTheme>) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: theme.background,
   },
   scrollContent: {
     padding: 20,
@@ -145,7 +148,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.dark.surfaceContainerHighest,
+    backgroundColor: theme.surfaceContainerHighest,
     borderRadius: 16,
     paddingHorizontal: 16,
     height: 56,
@@ -156,17 +159,17 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 16,
     fontWeight: '500',
   },
   historyCard: {
-    backgroundColor: Colors.dark.surfaceContainerLow,
+    backgroundColor: theme.surfaceContainerLow,
     borderRadius: 24,
     padding: 20,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: theme.outlineVariant || 'rgba(255, 255, 255, 0.05)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -175,14 +178,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardTitle: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 18,
     fontWeight: '700',
     flex: 1,
     marginRight: 8,
   },
   cardTime: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 10,
     fontWeight: '600',
   },
@@ -195,20 +198,20 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   cardPreview: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 12,
   },
   tagBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0, 218, 243, 0.1)',
+    backgroundColor: theme.tertiary + '1A',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   tagText: {
-    color: Colors.dark.tertiary,
+    color: theme.tertiary,
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -219,18 +222,18 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 24,
     alignItems: 'center',
-    backgroundColor: Colors.dark.surfaceContainerLow,
+    backgroundColor: theme.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: theme.outlineVariant || 'rgba(255, 255, 255, 0.05)',
     gap: 8,
   },
   emptyTitle: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 16,
     fontWeight: '700',
   },
   emptySub: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 12,
     textAlign: 'center',
   },
@@ -240,11 +243,11 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: theme.primary,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: Colors.dark.tertiary,
+    shadowColor: theme.tertiary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

@@ -1,0 +1,4 @@
+Model,Dataset,Perplexity
+Gemma 3 1B (FP32),WikiText-2 Subset,14.492050170898438
+Gemma 3 1B (INT8),WikiText-2 Subset,13.583770751953125
+Gemma 3 1B (INT4),WikiText-2 Subset,15.55522632598877

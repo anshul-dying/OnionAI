@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Platform, Keyboard } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useTheme } from '@/hooks/use-theme-color';
 
 interface InputAreaProps {
   value: string;
@@ -11,6 +10,7 @@ interface InputAreaProps {
   placeholder?: string;
   disabled?: boolean;
 }
+
 export const InputArea: React.FC<InputAreaProps> = ({
   value,
   onChangeText,
@@ -18,7 +18,7 @@ export const InputArea: React.FC<InputAreaProps> = ({
   placeholder = 'Message OnionAI...',
   disabled = false,
 }) => {
-  const tabBarHeight = useBottomTabBarHeight();
+  const theme = useTheme();
   const [isKeyboardVisible, setIsKeyboardVisible] = React.useState(false);
 
   React.useEffect(() => {
@@ -32,31 +32,35 @@ export const InputArea: React.FC<InputAreaProps> = ({
     };
   }, []);
 
-  const bottomPadding = isKeyboardVisible ? 8 : tabBarHeight + 8;
+  const bottomPadding = isKeyboardVisible ? 8 : 12;
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
-      <View style={styles.inputWrapper}>
+      <View style={[styles.inputWrapper, { backgroundColor: theme.surfaceContainerHigh }]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: theme.onSurface }]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="rgba(197, 197, 212, 0.5)"
+          placeholderTextColor={theme.onSurfaceVariant + '80'}
           multiline
           editable={!disabled}
         />
 
         <View style={styles.rightActions}>
           <TouchableOpacity 
-            style={[styles.sendButton, (!value.trim() || disabled) && styles.sendButtonDisabled]} 
+            style={[
+              styles.sendButton, 
+              { backgroundColor: theme.primary },
+              (!value.trim() || disabled) && styles.sendButtonDisabled
+            ]} 
             onPress={onSend}
             disabled={!value.trim() || disabled}
             accessibilityRole="button"
             accessibilityLabel="Send message"
             accessibilityHint="Sends your message to OnionAI"
           >
-            <MaterialIcons name="send" size={20} color={Colors.dark.onPrimary} />
+            <MaterialIcons name="send" size={20} color={theme.onPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -72,7 +76,6 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.dark.surfaceContainerHigh,
     borderRadius: 32,
     padding: 8,
     ...Platform.select({
@@ -89,7 +92,6 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: Colors.dark.onSurface,
     fontSize: 14,
     paddingHorizontal: 14,
     maxHeight: 100,
@@ -99,11 +101,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  iconButton: {
-    padding: 10,
-  },
   sendButton: {
-    backgroundColor: Colors.dark.primary,
     width: 40,
     height: 40,
     borderRadius: 20,

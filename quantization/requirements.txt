@@ -9,3 +9,8 @@ executorch
 torchao
 matplotlib
 seaborn
+optimum-executorch
+sentencepiece
+sacrebleu
+rouge-score
+bert-score

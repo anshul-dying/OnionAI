@@ -1,13 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme-color';
 
 interface ThemedHeaderProps {
   title: string;
   subtitle?: string;
   showMenu?: boolean;
+  menuIcon?: keyof typeof MaterialIcons.glyphMap;
   onMenuPress?: () => void;
   rightIcons?: { name: keyof typeof MaterialIcons.glyphMap; onPress: () => void }[];
 }
@@ -16,26 +17,48 @@ export const ThemedHeader: React.FC<ThemedHeaderProps> = ({
   title,
   subtitle,
   showMenu = true,
+  menuIcon = 'menu',
   onMenuPress,
   rightIcons = [],
 }) => {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+
+  // Premium micro-animation: dynamic pulse loop
+  const pulseAnim = React.useRef(new Animated.Value(0.4)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.4,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.surfaceContainerLow }]}>
       <View style={styles.content}>
         <View style={styles.leftSection}>
           {showMenu && (
             <TouchableOpacity onPress={onMenuPress} style={styles.iconButton}>
-              <MaterialIcons name="menu" size={24} color={Colors.dark.primary} />
+              <MaterialIcons name={menuIcon} size={24} color={theme.primary} />
             </TouchableOpacity>
           )}
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>{title}</Text>
+            <Text style={[styles.title, { color: theme.primary }]}>{title}</Text>
             {subtitle && (
               <View style={styles.subtitleContainer}>
-                <View style={styles.pulseOrb} />
-                <Text style={styles.subtitle}>{subtitle}</Text>
+                <Animated.View style={[styles.pulseOrb, { backgroundColor: theme.tertiary, opacity: pulseAnim }]} />
+                <Text style={[styles.subtitle, { color: theme.tertiary }]}>{subtitle}</Text>
               </View>
             )}
           </View>
@@ -44,7 +67,7 @@ export const ThemedHeader: React.FC<ThemedHeaderProps> = ({
         <View style={styles.rightSection}>
           {rightIcons.map((icon, index) => (
             <TouchableOpacity key={index} onPress={icon.onPress} style={styles.iconButton}>
-              <MaterialIcons name={icon.name} size={24} color="#909090" />
+              <MaterialIcons name={icon.name} size={24} color={theme.outline} />
             </TouchableOpacity>
           ))}
         </View>
@@ -55,7 +78,6 @@ export const ThemedHeader: React.FC<ThemedHeaderProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1c1b1b',
     zIndex: 50,
   },
   content: {
@@ -84,10 +106,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   title: {
-    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'sans-serif-medium',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.dark.primary,
   },
   subtitleContainer: {
     flexDirection: 'row',
@@ -97,7 +118,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.dark.tertiary,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
   },
@@ -105,6 +125,5 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.dark.tertiary,
   },
 });

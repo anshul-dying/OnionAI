@@ -79,9 +79,29 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     async function load() {
+      const backupPath = `${STORAGE_PATH}.bak`;
       try {
         const info = await FileSystem.getInfoAsync(STORAGE_PATH);
         if (!info.exists) {
+          // Check if a backup exists in case of primary file failure
+          const backupInfo = await FileSystem.getInfoAsync(backupPath);
+          if (backupInfo.exists) {
+            console.log('Primary history missing but backup exists. Attempting recovery from backup...');
+            const raw = await FileSystem.readAsStringAsync(backupPath);
+            const parsed = JSON.parse(raw) as PersistedChatHistory;
+            const loadedSessions = Array.isArray(parsed?.sessions) ? parsed.sessions : [];
+            if (loadedSessions.length) {
+              const activeExists = loadedSessions.some((session) => session.id === parsed?.activeSessionId);
+              setSessions(loadedSessions);
+              setActiveSessionId(activeExists ? parsed.activeSessionId : loadedSessions[0].id);
+              setHasLoaded(true);
+              
+              // Restore primary from backup immediately
+              await FileSystem.copyAsync({ from: backupPath, to: STORAGE_PATH });
+              return;
+            }
+          }
+
           const defaultSession = createSession();
           setSessions([defaultSession]);
           setActiveSessionId(defaultSession.id);
@@ -106,7 +126,26 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
         setActiveSessionId(activeExists ? parsed.activeSessionId : loadedSessions[0].id);
         setHasLoaded(true);
       } catch (error) {
-        console.error('Failed to load chat history:', error);
+        console.error('Failed to load chat history, checking backup:', error);
+        try {
+          const backupInfo = await FileSystem.getInfoAsync(backupPath);
+          if (backupInfo.exists) {
+            console.log('Attempting to recover from backup after primary parse failure...');
+            const raw = await FileSystem.readAsStringAsync(backupPath);
+            const parsed = JSON.parse(raw) as PersistedChatHistory;
+            const loadedSessions = Array.isArray(parsed?.sessions) ? parsed.sessions : [];
+            if (loadedSessions.length) {
+              const activeExists = loadedSessions.some((session) => session.id === parsed?.activeSessionId);
+              setSessions(loadedSessions);
+              setActiveSessionId(activeExists ? parsed.activeSessionId : loadedSessions[0].id);
+              setHasLoaded(true);
+              return;
+            }
+          }
+        } catch (backupError) {
+          console.error('Backup load failed as well:', backupError);
+        }
+
         const defaultSession = createSession();
         setSessions([defaultSession]);
         setActiveSessionId(defaultSession.id);
@@ -121,10 +160,43 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!hasLoaded) return;
     const payload: PersistedChatHistory = { activeSessionId, sessions };
-    const timer = setTimeout(() => {
-      FileSystem.writeAsStringAsync(STORAGE_PATH, JSON.stringify(payload)).catch((error) => {
-        console.error('Failed to persist chat history:', error);
-      });
+    const timer = setTimeout(async () => {
+      const tempPath = `${STORAGE_PATH}.tmp`;
+      const backupPath = `${STORAGE_PATH}.bak`;
+      try {
+        // 1. Write to temporary file
+        await FileSystem.writeAsStringAsync(tempPath, JSON.stringify(payload));
+        
+        // 2. Backup the current valid history file if it exists
+        const existsInfo = await FileSystem.getInfoAsync(STORAGE_PATH);
+        if (existsInfo.exists) {
+          try {
+            // Delete old backup first to prevent duplicate copy issues
+            const backupExists = await FileSystem.getInfoAsync(backupPath);
+            if (backupExists.exists) {
+              await FileSystem.deleteAsync(backupPath, { idempotent: true });
+            }
+            await FileSystem.copyAsync({ from: STORAGE_PATH, to: backupPath });
+          } catch (backupErr) {
+            console.warn('Could not create history backup, continuing anyway:', backupErr);
+          }
+        }
+        
+        // 3. Move temporary file to active path (simulates atomic move)
+        try {
+          const activeExists = await FileSystem.getInfoAsync(STORAGE_PATH);
+          if (activeExists.exists) {
+            await FileSystem.deleteAsync(STORAGE_PATH, { idempotent: true });
+          }
+          await FileSystem.moveAsync({ from: tempPath, to: STORAGE_PATH });
+        } catch (moveErr) {
+          console.error('Simulated atomic rename failed, fallback copy:', moveErr);
+          await FileSystem.copyAsync({ from: tempPath, to: STORAGE_PATH });
+          await FileSystem.deleteAsync(tempPath, { idempotent: true });
+        }
+      } catch (error) {
+        console.error('Failed to persist chat history safely:', error);
+      }
     }, 250);
 
     return () => clearTimeout(timer);

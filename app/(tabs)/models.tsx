@@ -1,16 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, TextInput } from 'react-native';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { ThemedHeader } from '@/components/ThemedHeader';
-import { Colors } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useModelContext } from '@/hooks/ModelContext';
-
-const DEFAULT_MODEL_PATH = 'file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files/Llama-3.2-1B-Instruct.pte';
-const DEFAULT_TOKENIZER_PATH = 'file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files/tokenizer.json';
-const DEFAULT_TOKENIZER_BIN_PATH = 'file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files/tokenizer.bin';
+import { useTheme } from '@/hooks/use-theme-color';
 
 function formatBytes(size: number | null) {
   if (!size || size <= 0) return 'unknown';
@@ -25,7 +20,8 @@ function formatBytes(size: number | null) {
 }
 
 export default function ModelsScreen() {
-  const tabBarHeight = useBottomTabBarHeight();
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const { 
     modelUri, 
     setModelUri, 
@@ -35,7 +31,8 @@ export default function ModelsScreen() {
     availableModels,
     switchModel,
     scanForModels,
-    isLoadingAssets 
+    isLoadingAssets,
+    importCustomFile
   } = useModelContext();
   const [draftModelUri, setDraftModelUri] = React.useState(modelUri ?? '');
   const [draftTokenizerUri, setDraftTokenizerUri] = React.useState(tokenizerUri ?? '');
@@ -80,8 +77,8 @@ export default function ModelsScreen() {
       Alert.alert('Invalid model file', 'Select an ExecuTorch model ending in .pte or .bin.');
       return;
     }
-    setModelUri(file.uri);
-    Alert.alert('Model selected', file.name);
+    await importCustomFile(file.uri, 'model');
+    Alert.alert('Model selected & imported', file.name);
   };
 
   const handleImportTokenizer = async () => {
@@ -96,8 +93,8 @@ export default function ModelsScreen() {
       Alert.alert('Invalid tokenizer file', 'Select tokenizer.json, tokenizer.bin, or tokenizer.model.');
       return;
     }
-    setTokenizerUri(file.uri);
-    Alert.alert('Tokenizer selected', file.name);
+    await importCustomFile(file.uri, 'tokenizer');
+    Alert.alert('Tokenizer selected & imported', file.name);
   };
 
   const applyManualPaths = async () => {
@@ -139,10 +136,11 @@ export default function ModelsScreen() {
     <View style={styles.container}>
       <ThemedHeader 
         title="Models" 
+        showMenu={false}
         rightIcons={[{ name: 'refresh', onPress: applyDefaultPaths }]}
       />
       
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 24 }]}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.heroCard}>
           <View style={styles.heroContent}>
             <View style={styles.statusBadge}>
@@ -180,7 +178,7 @@ export default function ModelsScreen() {
                   key={model.id} 
                   style={[
                     styles.modelCard, 
-                    model.modelUri === modelUri && { borderColor: Colors.dark.tertiary, borderWidth: 2 }
+                    model.modelUri === modelUri && { borderColor: theme.tertiary, borderWidth: 2 }
                   ]}
                   onPress={() => switchModel(model)}
                 >
@@ -189,7 +187,7 @@ export default function ModelsScreen() {
                       <MaterialIcons 
                         name="memory" 
                         size={20} 
-                        color={model.modelUri === modelUri ? Colors.dark.tertiary : Colors.dark.outline} 
+                        color={model.modelUri === modelUri ? theme.tertiary : theme.outline} 
                       />
                       <Text style={styles.modelName}>{model.name}</Text>
                     </View>
@@ -207,7 +205,7 @@ export default function ModelsScreen() {
                       <MaterialIcons 
                         name={model.tokenizerUri ? "check-circle" : "warning"} 
                         size={14} 
-                        color={model.tokenizerUri ? Colors.dark.tertiary : "#ff9800"} 
+                        color={model.tokenizerUri ? theme.tertiary : "#ff9800"} 
                       />
                       <Text style={[
                         styles.downloadedText,
@@ -232,7 +230,7 @@ export default function ModelsScreen() {
         <View style={styles.modelCard}>
           <View style={styles.fileRow}>
             <View style={styles.fileHeader}>
-              <MaterialIcons name="memory" size={20} color={Colors.dark.tertiary} />
+              <MaterialIcons name="memory" size={20} color={theme.tertiary} />
               <Text style={styles.modelName}>Model</Text>
             </View>
             <Text style={styles.sizeText}>{formatBytes(modelSize)}</Text>
@@ -246,7 +244,7 @@ export default function ModelsScreen() {
         <View style={styles.modelCard}>
           <View style={styles.fileRow}>
             <View style={styles.fileHeader}>
-              <MaterialIcons name="description" size={20} color={Colors.dark.tertiary} />
+              <MaterialIcons name="description" size={20} color={theme.tertiary} />
               <Text style={styles.modelName}>Tokenizer</Text>
             </View>
             <Text style={styles.sizeText}>{formatBytes(tokenizerSize)}</Text>
@@ -259,7 +257,7 @@ export default function ModelsScreen() {
 
         <View style={styles.modelCard}>
           <View style={styles.fileHeader}>
-            <MaterialIcons name="tune" size={20} color={Colors.dark.tertiary} />
+            <MaterialIcons name="tune" size={20} color={theme.tertiary} />
             <Text style={styles.modelName}>Manual path override</Text>
           </View>
           <Text style={styles.modelDesc}>
@@ -270,7 +268,7 @@ export default function ModelsScreen() {
             <TextInput
               style={styles.pathInput}
               placeholder="file:///.../model.pte"
-              placeholderTextColor={Colors.dark.outline}
+              placeholderTextColor={theme.outline}
               value={draftModelUri}
               onChangeText={setDraftModelUri}
             />
@@ -280,7 +278,7 @@ export default function ModelsScreen() {
             <TextInput
               style={styles.pathInput}
               placeholder="file:///.../tokenizer.json"
-              placeholderTextColor={Colors.dark.outline}
+              placeholderTextColor={theme.outline}
               value={draftTokenizerUri}
               onChangeText={setDraftTokenizerUri}
             />
@@ -316,28 +314,29 @@ export default function ModelsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   activeBadge: {
-    backgroundColor: Colors.dark.tertiary,
+    backgroundColor: theme.tertiary,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
   },
   activeText: {
-    color: Colors.dark.onTertiary,
+    color: theme.onTertiary,
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: theme.background,
   },
   scrollContent: {
     padding: 20,
+    paddingBottom: 40,
   },
   heroCard: {
-    backgroundColor: Colors.dark.surfaceContainerLow,
+    backgroundColor: theme.surfaceContainerLow,
     borderRadius: 32,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
@@ -363,23 +362,23 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.dark.tertiary,
+    backgroundColor: theme.tertiary,
   },
   statusText: {
-    color: Colors.dark.tertiary,
+    color: theme.tertiary,
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   heroTitle: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 28,
     fontWeight: '800',
     marginBottom: 8,
   },
   heroSub: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 24,
@@ -390,24 +389,24 @@ const styles = StyleSheet.create({
   },
   outlineButton: {
     flex: 1,
-    backgroundColor: Colors.dark.surfaceContainerHighest,
+    backgroundColor: theme.surfaceContainerHighest,
     paddingVertical: 12,
     borderRadius: 24,
     alignItems: 'center',
   },
   outlineButtonText: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontWeight: '600',
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: theme.primary,
     paddingVertical: 12,
     borderRadius: 24,
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: Colors.dark.onPrimary,
+    color: theme.onPrimary,
     fontWeight: '600',
   },
   sectionHeader: {
@@ -420,7 +419,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -429,26 +428,26 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   storageText: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 11,
     fontWeight: '500',
   },
   storageBar: {
     width: 100,
     height: 6,
-    backgroundColor: Colors.dark.surfaceContainerHighest,
+    backgroundColor: theme.surfaceContainerHighest,
     borderRadius: 3,
     overflow: 'hidden',
   },
   storageProgress: {
     height: '100%',
-    backgroundColor: Colors.dark.tertiary,
+    backgroundColor: theme.tertiary,
   },
   grid: {
     gap: 16,
   },
   modelCard: {
-    backgroundColor: Colors.dark.surfaceContainerLow,
+    backgroundColor: theme.surfaceContainerLow,
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
@@ -462,29 +461,29 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     padding: 10,
-    backgroundColor: Colors.dark.surfaceContainerHighest,
+    backgroundColor: theme.surfaceContainerHighest,
     borderRadius: 16,
   },
   iconActive: {
     backgroundColor: 'rgba(0, 218, 243, 0.1)',
   },
   sizeText: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 12,
     fontWeight: '500',
-    backgroundColor: Colors.dark.surfaceContainerHighest,
+    backgroundColor: theme.surfaceContainerHighest,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   modelName: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 4,
   },
   modelDesc: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 20,
@@ -501,7 +500,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filePath: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 12,
     lineHeight: 18,
     marginBottom: 12,
@@ -509,13 +508,13 @@ const styles = StyleSheet.create({
   },
   inlineButton: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.dark.surfaceContainerHigh,
+    backgroundColor: theme.surfaceContainerHigh,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   inlineButtonText: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -530,7 +529,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   downloadedText: {
-    color: Colors.dark.tertiary,
+    color: theme.tertiary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -543,17 +542,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   downloadProgressText: {
-    color: Colors.dark.tertiary,
+    color: theme.tertiary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   downloadSpeed: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 11,
   },
   importCard: {
-    backgroundColor: Colors.dark.surfaceContainerLow,
+    backgroundColor: theme.surfaceContainerLow,
     borderRadius: 24,
     padding: 32,
     borderWidth: 1,
@@ -566,25 +565,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   importText: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 16,
     fontWeight: '700',
   },
   importSub: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 11,
     marginTop: 4,
   },
   envCard: {
     marginTop: 32,
-    backgroundColor: Colors.dark.surfaceContainerLow,
+    backgroundColor: theme.surfaceContainerLow,
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   envTitle: {
-    color: Colors.dark.outline,
+    color: theme.outline,
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -598,17 +597,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   envLabel: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 11,
   },
   envValue: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     fontSize: 13,
   },
   manualPathCard: {
     marginTop: 24,
-    backgroundColor: Colors.dark.surfaceContainerLow,
+    backgroundColor: theme.surfaceContainerLow,
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
@@ -618,26 +617,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   pathLabel: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 12,
     marginBottom: 8,
     fontWeight: '600',
   },
   primaryWideButton: {
     marginTop: 4,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: theme.primary,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
   },
   manualPathTitle: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
   },
   manualPathSub: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 12,
     marginBottom: 16,
   },
@@ -647,17 +646,17 @@ const styles = StyleSheet.create({
   },
   pathInput: {
     flex: 1,
-    backgroundColor: Colors.dark.surfaceContainerHighest,
+    backgroundColor: theme.surfaceContainerHighest,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 48,
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 14,
   },
   pathButton: {
     width: 48,
     height: 48,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: theme.primary,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',

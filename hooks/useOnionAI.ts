@@ -139,8 +139,6 @@ export function useOnionAI({
   
   const computedUseMock =
     initialUseMock || !nativeUseLLM || !modelUri || !activeTokenizerUri || !tokenizerConfigUri;
-  const useMockRef = useRef<boolean>(computedUseMock);
-  const useMock = useMockRef.current;
   
   const modelId = useMemo(() => {
     if (!modelUri) return 'unknown';
@@ -148,9 +146,8 @@ export function useOnionAI({
     return filename.replace('.pte', '').replace('.pth', '');
   }, [modelUri]);
 
-  const llm = useMock
-    ? useMockLLM()
-    : nativeUseLLM({
+  const llm = nativeUseLLM
+    ? nativeUseLLM({
         model: {
           modelName: modelId,
           modelSource: modelUri || '',
@@ -158,11 +155,12 @@ export function useOnionAI({
           tokenizerConfigSource: tokenizerConfigUri || '',
         },
         maxSeqLen: 1024,
-        preventLoad: false,
-      });
+        preventLoad: computedUseMock,
+      })
+    : useMockLLM();
 
   useEffect(() => {
-    if (useMock || !llm?.error || isTokenizerFallbackExhausted) {
+    if (computedUseMock || !llm?.error || isTokenizerFallbackExhausted) {
       return;
     }
 
@@ -218,7 +216,7 @@ export function useOnionAI({
     return () => {
       cancelled = true;
     };
-  }, [llm?.error, useMock, isTokenizerFallbackExhausted, tokenizerCandidates, activeTokenizerUri]);
+  }, [llm?.error, computedUseMock, isTokenizerFallbackExhausted, tokenizerCandidates, activeTokenizerUri]);
 
   const sendMessage = useCallback(async (text: string) => {
     const createMessageId = () => {
@@ -229,9 +227,6 @@ export function useOnionAI({
     // Add user message to UI immediately
     const userMessage: Message = {
       id: createMessageId(),
-
-
-      
       text,
       sender: 'user',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -254,7 +249,7 @@ export function useOnionAI({
       return;
     }
 
-    if (useMock) {
+    if (computedUseMock) {
       setMockIsGenerating(true);
       try {
         const response = await MockLLMService.generateResponse(text);
@@ -308,11 +303,11 @@ export function useOnionAI({
       console.warn("LLM not ready yet:", errorMsg);
       setRuntimeErrorMessage(errorMsg);
     }
-  }, [useMock, llm, messages]);
+  }, [computedUseMock, llm, messages]);
 
   // Sync real LLM response into the pending AI message
   useEffect(() => {
-    if (useMock || !pendingNativeAiMessageIdRef.current || !llm?.response) {
+    if (computedUseMock || !pendingNativeAiMessageIdRef.current || !llm?.response) {
       return;
     }
 
@@ -335,7 +330,7 @@ export function useOnionAI({
       pendingNativeAiMessageIdRef.current = null;
       lastNativeResponseRef.current = '';
     }
-  }, [llm?.response, llm?.isGenerating, useMock]);
+  }, [llm?.response, llm?.isGenerating, computedUseMock]);
 
   useEffect(() => {
     if (!onMessagesChange) return;
@@ -347,8 +342,8 @@ export function useOnionAI({
   return {
     messages,
     sendMessage,
-    isThinking: useMock ? mockIsGenerating : llm?.isGenerating,
-    isMockMode: useMock,
+    isThinking: computedUseMock ? mockIsGenerating : llm?.isGenerating,
+    isMockMode: computedUseMock,
     errorMessage: runtimeErrorMessage ?? llm?.error?.message ?? null,
   };
 }

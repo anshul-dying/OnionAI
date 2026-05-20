@@ -1,9 +1,8 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ThemedHeader } from '@/components/ThemedHeader';
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme-color';
 
 const PRINCIPLES = [
   {
@@ -30,12 +29,13 @@ const RUNTIME_NOTES = [
 ];
 
 export default function ExploreScreen() {
-  const tabBarHeight = useBottomTabBarHeight();
+  const theme = useTheme();
+  const styles = createStyles(theme);
 
   return (
     <View style={styles.container}>
       <ThemedHeader title="About OnionAI" showMenu={false} />
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 24 }]}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>Local-first AI assistant</Text>
           <Text style={styles.heroSubtitle}>
@@ -47,7 +47,7 @@ export default function ExploreScreen() {
         {PRINCIPLES.map((item) => (
           <View key={item.title} style={styles.card}>
             <View style={styles.cardHeader}>
-              <MaterialIcons name={item.icon} size={18} color={Colors.dark.tertiary} />
+              <MaterialIcons name={item.icon} size={18} color={theme.tertiary} />
               <Text style={styles.cardTitle}>{item.title}</Text>
             </View>
             <Text style={styles.cardDescription}>{item.description}</Text>
@@ -58,7 +58,7 @@ export default function ExploreScreen() {
         <View style={styles.card}>
           {RUNTIME_NOTES.map((note) => (
             <View key={note} style={styles.noteRow}>
-              <MaterialIcons name="check-circle" size={14} color={Colors.dark.tertiary} />
+              <MaterialIcons name="check-circle" size={14} color={theme.tertiary} />
               <Text style={styles.noteText}>{note}</Text>
             </View>
           ))}
@@ -68,37 +68,38 @@ export default function ExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useTheme>) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: theme.background,
   },
   scrollContent: {
     padding: 20,
+    paddingBottom: 40,
     gap: 12,
   },
   heroCard: {
     borderRadius: 28,
     padding: 24,
-    backgroundColor: Colors.dark.surfaceContainerLow,
+    backgroundColor: theme.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: theme.outlineVariant || 'rgba(255, 255, 255, 0.05)',
   },
   heroTitle: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 24,
     fontWeight: '800',
     marginBottom: 10,
   },
   heroSubtitle: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 14,
     lineHeight: 20,
   },
   sectionTitle: {
     marginTop: 8,
     marginBottom: 4,
-    color: Colors.dark.outline,
+    color: theme.outline,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -107,9 +108,9 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 20,
     padding: 16,
-    backgroundColor: Colors.dark.surfaceContainerLow,
+    backgroundColor: theme.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: theme.outlineVariant || 'rgba(255, 255, 255, 0.05)',
     gap: 8,
   },
   cardHeader: {
@@ -118,12 +119,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardTitle: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
     fontSize: 16,
     fontWeight: '700',
   },
   cardDescription: {
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
   },
   noteText: {
     flex: 1,
-    color: Colors.dark.onSurfaceVariant,
+    color: theme.onSurfaceVariant,
     fontSize: 13,
     lineHeight: 19,
   },

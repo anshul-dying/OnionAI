@@ -6,29 +6,30 @@ import { MessageBubble } from '@/components/Chat/MessageBubble';
 import { InputArea } from '@/components/Chat/InputArea';
 import { SystemMonitor } from '@/components/Chat/SystemMonitor';
 import { PrivacyGuard } from '@/components/Assurance/PrivacyGuard';
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme-color';
 import { StatusBar } from 'expo-status-bar';
 import { useOnionAI } from '@/hooks/useOnionAI';
 import { useChatHistory } from '@/hooks/ChatHistoryContext';
 import { useModelContext } from '@/hooks/ModelContext';
 
 export default function HomeScreen() {
+  const theme = useTheme();
   const { modelUri, tokenizerUri, tokenizerConfigUri, isLoadingAssets } = useModelContext();
   const { activeSession, isLoading: isLoadingHistory } = useChatHistory();
   const shouldUseMock = !modelUri || !tokenizerUri || !tokenizerConfigUri;
 
   if (isLoadingAssets || isLoadingHistory || !activeSession) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
-        <Text style={styles.loadingText}>Preparing workspace...</Text>
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.onSurface }]}>Preparing workspace...</Text>
       </View>
     );
   }
 
   return (
     <ChatRuntime
-      key={`${activeSession.id}-${shouldUseMock ? 'mock' : 'native'}`}
+      key={activeSession.id}
       modelUri={modelUri}
       tokenizerUri={tokenizerUri}
       tokenizerConfigUri={tokenizerConfigUri}
@@ -52,6 +53,7 @@ function ChatRuntime({
   initialMessages: Parameters<typeof useOnionAI>[0]['initialMessages'];
 }) {
   const router = useRouter();
+  const theme = useTheme();
   const { updateActiveSessionMessages } = useChatHistory();
   const { messages, sendMessage, isThinking, isMockMode, errorMessage } = useOnionAI({
     useMock,
@@ -78,11 +80,12 @@ function ChatRuntime({
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar style={theme.background === '#fcf8f8' ? 'dark' : 'light'} />
       <ThemedHeader 
         title="OnionAI" 
         subtitle={isMockMode ? 'Mock Mode' : (modelUri?.split('/').pop() ?? 'Local Mode')}
+        menuIcon="history"
         onMenuPress={() => router.push('/history')}
       />
       
@@ -116,8 +119,8 @@ function ChatRuntime({
           style={{ flex: 1 }}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
-            <View style={styles.dateIndicator}>
-              <Text style={styles.dateText}>
+            <View style={[styles.dateIndicator, { backgroundColor: theme.surfaceContainerHigh }]}>
+              <Text style={[styles.dateText, { color: theme.onSurfaceVariant }]}>
                 {new Date().toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
               </Text>
             </View>
@@ -125,8 +128,8 @@ function ChatRuntime({
           ListFooterComponent={
             isThinking ? (
               <View style={styles.thinkingContainer}>
-                <Text style={styles.thinkingText}>OnionAI is thinking...</Text>
-                <ActivityIndicator color={Colors.dark.tertiary} size="small" />
+                <Text style={[styles.thinkingText, { color: theme.tertiary }]}>OnionAI is thinking...</Text>
+                <ActivityIndicator color={theme.tertiary} size="small" />
               </View>
             ) : null
           }
@@ -146,7 +149,6 @@ function ChatRuntime({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
   },
   listContent: {
     paddingBottom: 24, 
@@ -154,14 +156,12 @@ const styles = StyleSheet.create({
   },
   dateIndicator: {
     alignSelf: 'center',
-    backgroundColor: Colors.dark.surfaceContainerHigh,
     paddingHorizontal: 16,
     paddingVertical: 4,
     borderRadius: 20,
     marginBottom: 20,
   },
   dateText: {
-    color: Colors.dark.onSurfaceVariant,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -173,7 +173,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   thinkingText: {
-    color: Colors.dark.tertiary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -184,7 +183,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: Colors.dark.onSurface,
     marginTop: 16,
     fontSize: 14,
     fontWeight: '500',

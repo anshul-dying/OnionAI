@@ -19,6 +19,7 @@ interface ModelContextType {
   switchModel: (model: ModelInfo) => Promise<void>;
   scanForModels: () => Promise<void>;
   isLoadingAssets: boolean;
+  importCustomFile: (uri: string | null, type: 'model' | 'tokenizer') => Promise<string | null>;
 }
 
 const ModelContext = createContext<ModelContextType>({
@@ -31,6 +32,7 @@ const ModelContext = createContext<ModelContextType>({
   switchModel: async () => {},
   scanForModels: async () => {},
   isLoadingAssets: true,
+  importCustomFile: async () => null,
 });
 
 export function ModelProvider({ children }: { children: ReactNode }) {
@@ -208,11 +210,46 @@ export function ModelProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  async function importCustomFile(uri: string | null, type: 'model' | 'tokenizer'): Promise<string | null> {
+    if (!uri) return null;
+    setIsLoadingAssets(true);
+    try {
+      const fileName = uri.split('/').pop() || (type === 'model' ? 'model.pte' : 'tokenizer.json');
+      const appPrivateFolder = `${FileSystem.documentDirectory}`;
+      const importFolder = `${appPrivateFolder}imported-assets`;
+      await FileSystem.makeDirectoryAsync(importFolder, { intermediates: true });
+      const destinationPath = `${importFolder}/${fileName}`;
+      
+      console.log(`[IMPORT] Copying custom ${type} from ${uri} to ${destinationPath}`);
+      await FileSystem.copyAsync({ from: uri, to: destinationPath });
+      
+      if (type === 'model') {
+        setModelUri(destinationPath);
+      } else {
+        setTokenizerUri(destinationPath);
+      }
+      return destinationPath;
+    } catch (e) {
+      console.error(`[IMPORT] Failed to import custom ${type} file:`, e);
+      if (type === 'model') {
+        setModelUri(uri);
+      } else {
+        setTokenizerUri(uri);
+      }
+      return uri;
+    } finally {
+      setIsLoadingAssets(false);
+    }
+  }
+
   useEffect(() => {
     scanForModels();
   }, []);
 
   function shouldCopyToPrivateStorage(path: string) {
+    if (path.startsWith('content://') || path.includes('/cache/')) {
+      return true;
+    }
     return (
       path.startsWith('file:///storage/emulated/0/') &&
       !path.includes('/Android/data/') &&
@@ -230,7 +267,8 @@ export function ModelProvider({ children }: { children: ReactNode }) {
       setTokenizerUri,
       switchModel,
       scanForModels,
-      isLoadingAssets 
+      isLoadingAssets,
+      importCustomFile
     }}>
       {children}
     </ModelContext.Provider>
