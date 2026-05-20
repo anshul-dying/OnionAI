@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme-color';
 
 interface MessageBubbleProps {
   text: string;
@@ -15,6 +15,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   timestamp,
   senderName,
 }) => {
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const isAI = sender === 'ai';
 
   return (
@@ -22,6 +24,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       {isAI && senderName && (
         <Text style={styles.senderName}>{senderName}</Text>
       )}
+      
       <View style={[
         styles.bubble,
         isAI ? styles.aiBubble : styles.userBubble
@@ -33,6 +36,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {text}
         </Text>
       </View>
+      
       <Text style={[
         styles.timestamp,
         isAI ? styles.aiTimestamp : styles.userTimestamp
@@ -43,10 +47,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   cluster: {
-    marginVertical: 8,
-    maxWidth: '85%',
+    marginVertical: 6,
+    maxWidth: '82%',
   },
   aiCluster: {
     alignSelf: 'flex-start',
@@ -57,59 +61,69 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   senderName: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.dark.tertiary,
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: theme.tertiary,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
     marginBottom: 4,
-    marginLeft: 4,
+    marginLeft: 12,
   },
   bubble: {
-    padding: 16,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
       },
       android: {
-        elevation: 2,
+        elevation: 1,
       },
     }),
   },
   aiBubble: {
-    backgroundColor: 'rgba(0, 100, 112, 0.4)',
+    backgroundColor: theme.surfaceContainerLow,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   userBubble: {
-    backgroundColor: Colors.dark.primaryContainer,
+    backgroundColor: theme.primary,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomLeftRadius: 18,
     borderBottomRightRadius: 4,
   },
   text: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14.5,
+    lineHeight: 20,
+    letterSpacing: 0.1,
   },
   aiText: {
-    color: Colors.dark.onSurface,
+    color: theme.onSurface,
   },
   userText: {
-    color: Colors.dark.onPrimaryContainer,
+    color: theme.onPrimary,
+    fontWeight: '500',
   },
   timestamp: {
-    fontSize: 10,
-    color: Colors.dark.onSurfaceVariant,
+    fontSize: 9,
+    color: theme.outline,
     marginTop: 4,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   aiTimestamp: {
-    marginLeft: 4,
+    marginLeft: 12,
   },
   userTimestamp: {
     textAlign: 'right',
-    marginRight: 4,
+    marginRight: 12,
   },
 });

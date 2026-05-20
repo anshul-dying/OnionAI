@@ -133,6 +133,11 @@ export default function ModelsScreen() {
     Alert.alert('Cleared', 'Model and tokenizer paths were reset.');
   };
 
+  // Compute exact storage metrics for the disk utility layout
+  const totalModelsSize = availableModels.reduce((acc, m) => acc + (m.size || 0), 0);
+  const maxStorageLimit = 10 * 1024 * 1024 * 1024; // 10 GB visual reference limits
+  const storagePercentage = Math.min((totalModelsSize / maxStorageLimit) * 100, 100);
+
   return (
     <View style={styles.container}>
       <ThemedHeader 
@@ -141,210 +146,294 @@ export default function ModelsScreen() {
         rightIcons={[{ name: 'refresh', onPress: applyDefaultPaths }]}
       />
       
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Futural Active Model Hero Dashboard */}
         <View style={styles.heroCard}>
           <View style={styles.heroContent}>
-            <View style={styles.statusBadge}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>
-                {isLoadingAssets ? 'Preparing' : modelUri && tokenizerUri ? 'Ready' : 'Action required'}
-              </Text>
+            <View style={styles.heroHeaderRow}>
+              <View style={styles.statusBadge}>
+                <View style={[
+                  styles.statusDot, 
+                  modelUri && tokenizerUri && !isLoadingAssets && { backgroundColor: theme.tertiary }
+                ]} />
+                <Text style={styles.statusText}>
+                  {isLoadingAssets ? 'Orchestrating' : modelUri && tokenizerUri ? 'Engine Ready' : 'Core Required'}
+                </Text>
+              </View>
+              <MaterialIcons name="settings-input-component" size={18} color={theme.outline} />
             </View>
-            <Text style={styles.heroTitle}>{modelUri?.split('/').pop() || 'No model loaded'}</Text>
+
+            <Text style={styles.heroTitle} numberOfLines={1} ellipsizeMode="tail">
+              {modelUri ? modelUri.split('/').pop() : 'No Model Engine Loaded'}
+            </Text>
+            
             <Text style={styles.heroSub}>
               {modelUri && tokenizerUri
-                ? 'Local inference is configured. You can switch files or set exact storage paths below.'
-                : 'Select a model and tokenizer to run fully local inference on-device.'}
+                ? 'Local inference engine is active and compiled. Switch parameters below or manually map local storage paths.'
+                : 'Select an ExecuTorch weights package and matching tokenizer file to start local processing.'}
             </Text>
             
             <View style={styles.heroActions}>
-              <TouchableOpacity style={styles.outlineButton} onPress={clearPaths}>
-                <Text style={styles.outlineButtonText}>Clear</Text>
+              <TouchableOpacity style={styles.clearButton} onPress={clearPaths} activeOpacity={0.7}>
+                <MaterialIcons name="layers-clear" size={16} color={theme.onSurfaceVariant} style={{ marginRight: 6 }} />
+                <Text style={styles.clearButtonText}>Clear Core</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryButton} onPress={applyDefaultPaths}>
+              <TouchableOpacity style={styles.primaryButton} onPress={applyDefaultPaths} activeOpacity={0.8}>
+                <MaterialIcons name="youtube-searched-for" size={16} color={theme.onPrimary} style={{ marginRight: 6 }} />
                 <Text style={styles.primaryButtonText}>Scan Storage</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
+        {/* Disk Space Utility & Offline Storage Analyzer */}
         <View style={styles.storageAnalyzerCard}>
-          <View style={styles.fileHeader}>
-            <MaterialIcons name="storage" size={22} color={theme.tertiary} />
-            <Text style={styles.storageTitle}>Storage Analyzer</Text>
+          <View style={styles.storageHeaderRow}>
+            <View style={styles.headerTitleGroup}>
+              <MaterialIcons name="donut-large" size={20} color={theme.tertiary} />
+              <Text style={styles.storageTitle}>Local Resource footprint</Text>
+            </View>
+            <Text style={styles.storageLimitText}>10.0 GB Limit</Text>
           </View>
+          
           <Text style={styles.storageDesc}>
-            Offline models consume significant device storage. Clean up unused model weights to reclaim space.
+            Offline models operate fully local. Manage cache sizes to prevent storage warnings.
           </Text>
-          <View style={styles.storageRow}>
-            <Text style={styles.storageLabel}>Total Model Files Size</Text>
-            <Text style={styles.storageValue}>
-              {formatBytes(availableModels.reduce((acc, m) => acc + (m.size || 0), 0))}
-            </Text>
+
+          {/* Visual usage progress bar */}
+          <View style={styles.storageVisualTrack}>
+            <View style={[styles.storageVisualFill, { width: `${storagePercentage}%` }]} />
           </View>
-          <View style={styles.storageLabelRow}>
-            <Text style={styles.storageSubLabel}>Available Offline Models: {availableModels.length}</Text>
+
+          <View style={styles.storageMetaRow}>
+            <View style={styles.metaLabelGroup}>
+              <Text style={styles.storageLabel}>Total Footprint:</Text>
+              <Text style={styles.storageValue}>{formatBytes(totalModelsSize)}</Text>
+            </View>
+            <Text style={styles.storageCountBadge}>{availableModels.length} models cached</Text>
           </View>
         </View>
 
+        {/* Available offline models grid */}
         {availableModels.length > 0 && (
-          <>
-            <View style={styles.sectionHeaderSimple}>
-              <Text style={styles.sectionTitle}>Available Models</Text>
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Model Cartridges</Text>
+              <Text style={styles.sectionSubTitle}>DISCOVERED OFFLINE</Text>
             </View>
+            
             <View style={styles.grid}>
-              {availableModels.map((model) => (
-                <TouchableOpacity 
-                  key={model.id} 
-                  style={[
-                    styles.modelCard, 
-                    model.modelUri === modelUri && { borderColor: theme.tertiary, borderWidth: 2 }
-                  ]}
-                  onPress={() => switchModel(model)}
-                >
-                  <View style={styles.fileRow}>
-                    <View style={styles.fileHeader}>
-                      <MaterialIcons 
-                        name="memory" 
-                        size={20} 
-                        color={model.modelUri === modelUri ? theme.tertiary : theme.outline} 
-                      />
-                      <Text style={styles.modelName}>{model.name}</Text>
-                    </View>
-                    {model.modelUri === modelUri ? (
-                      <View style={styles.activeBadge}>
-                        <Text style={styles.activeText}>Active</Text>
+              {availableModels.map((model) => {
+                const isActive = model.modelUri === modelUri;
+                return (
+                  <TouchableOpacity 
+                    key={model.id} 
+                    activeOpacity={0.9}
+                    style={[
+                      styles.modelCard, 
+                      isActive && styles.activeModelCard
+                    ]}
+                    onPress={() => switchModel(model)}
+                  >
+                    <View style={styles.cardHeader}>
+                      <View style={styles.cardTitleGroup}>
+                        <View style={[styles.cardIconWrapper, isActive && styles.activeCardIconWrapper]}>
+                          <MaterialIcons 
+                            name="developer-board" 
+                            size={18} 
+                            color={isActive ? theme.tertiary : theme.outline} 
+                          />
+                        </View>
+                        <View style={styles.cardTextGroup}>
+                          <Text style={styles.modelName} numberOfLines={1}>{model.name}</Text>
+                          <Text style={styles.modelClass}>LOCAL ENGINE</Text>
+                        </View>
                       </View>
-                    ) : (
-                      <TouchableOpacity 
-                        style={styles.deleteButton} 
-                        onPress={() => {
-                          Alert.alert(
-                            'Delete Model',
-                            `Are you sure you want to delete ${model.name}?`,
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              { text: 'Delete', style: 'destructive', onPress: () => deleteModel(model) }
-                            ]
-                          );
-                        }}
-                      >
-                        <MaterialIcons name="delete-outline" size={20} color="#ff4d4d" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <Text style={styles.filePath} numberOfLines={1} ellipsizeMode="middle">
-                    {model.modelUri}
-                  </Text>
-                  <View style={styles.cardFooter}>
-                    <View style={styles.downloadedBadge}>
-                      <MaterialIcons 
-                        name={model.tokenizerUri ? "check-circle" : "warning"} 
-                        size={14} 
-                        color={model.tokenizerUri ? theme.tertiary : "#ff9800"} 
-                      />
-                      <Text style={[
-                        styles.downloadedText,
-                        !model.tokenizerUri && { color: "#ff9800" }
-                      ]}>
-                        {model.tokenizerUri ? "Tokenizer found" : "Tokenizer missing"}
-                      </Text>
+                      
+                      {isActive ? (
+                        <View style={styles.activeBadge}>
+                          <View style={styles.activeBadgeDot} />
+                          <Text style={styles.activeText}>Active</Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity 
+                          style={styles.deleteButton} 
+                          onPress={() => {
+                            Alert.alert(
+                              'Purge Model Cartridge',
+                              `Confirm complete removal of ${model.name}? This will free offline device space.`,
+                              [
+                                { text: 'Abort', style: 'cancel' },
+                                { text: 'Purge Weights', style: 'destructive', onPress: () => deleteModel(model) }
+                              ]
+                            );
+                          }}
+                        >
+                          <MaterialIcons name="delete-sweep" size={18} color={theme.error} />
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    {model.sizeFormatted && (
-                      <Text style={styles.sizeText}>{model.sizeFormatted}</Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
+
+                    <Text style={styles.filePath} numberOfLines={1} ellipsizeMode="middle">
+                      {model.modelUri}
+                    </Text>
+
+                    <View style={styles.cardFooter}>
+                      <View style={[
+                        styles.downloadedBadge,
+                        !model.tokenizerUri && styles.warningDownloadedBadge
+                      ]}>
+                        <MaterialIcons 
+                          name={model.tokenizerUri ? "verified-user" : "warning"} 
+                          size={12} 
+                          color={model.tokenizerUri ? theme.tertiary : "#ff9800"} 
+                        />
+                        <Text style={[
+                          styles.downloadedText,
+                          !model.tokenizerUri && { color: "#ff9800" }
+                        ]}>
+                          {model.tokenizerUri ? "Tokenizer Verified" : "Tokenizer Missing"}
+                        </Text>
+                      </View>
+                      
+                      {model.sizeFormatted && (
+                        <View style={styles.sizeBadge}>
+                          <Text style={styles.sizeText}>{model.sizeFormatted}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-            <View style={{ height: 32 }} />
-          </>
+          </View>
         )}
 
-        <View style={styles.sectionHeaderSimple}>
-          <Text style={styles.sectionTitle}>Active File Details</Text>
+        {/* Active Configuration Panel */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Inference Details</Text>
+            <Text style={styles.sectionSubTitle}>ACTIVE FILES</Text>
+          </View>
+
+          <View style={styles.paramCapsuleCard}>
+            <View style={styles.capsuleRow}>
+              <View style={styles.capsuleIconGroup}>
+                <MaterialIcons name="memory" size={18} color={theme.tertiary} />
+                <View>
+                  <Text style={styles.capsuleTitle}>Core Model weights</Text>
+                  <Text style={styles.capsuleSub} numberOfLines={1} ellipsizeMode="middle">
+                    {modelUri ? modelUri : 'Not Configured'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.capsuleStatsGroup}>
+                <Text style={styles.capsuleSizeText}>{formatBytes(modelSize)}</Text>
+                <TouchableOpacity style={styles.capsuleButton} onPress={handleImportModel}>
+                  <MaterialIcons name="folder-open" size={16} color={theme.onSurface} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.capsuleDivider} />
+
+            <View style={styles.capsuleRow}>
+              <View style={styles.capsuleIconGroup}>
+                <MaterialIcons name="psychology" size={18} color={theme.tertiary} />
+                <View>
+                  <Text style={styles.capsuleTitle}>Tokenizer config</Text>
+                  <Text style={styles.capsuleSub} numberOfLines={1} ellipsizeMode="middle">
+                    {tokenizerUri ? tokenizerUri : 'Not Configured'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.capsuleStatsGroup}>
+                <Text style={styles.capsuleSizeText}>{formatBytes(tokenizerSize)}</Text>
+                <TouchableOpacity style={styles.capsuleButton} onPress={handleImportTokenizer}>
+                  <MaterialIcons name="folder-open" size={16} color={theme.onSurface} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
         </View>
 
-
-        <View style={styles.modelCard}>
-          <View style={styles.fileRow}>
-            <View style={styles.fileHeader}>
-              <MaterialIcons name="memory" size={20} color={theme.tertiary} />
-              <Text style={styles.modelName}>Model</Text>
-            </View>
-            <Text style={styles.sizeText}>{formatBytes(modelSize)}</Text>
+        {/* Manual Overrides */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Direct URI Controller</Text>
+            <Text style={styles.sectionSubTitle}>MANUAL FILEPATH OVERRIDES</Text>
           </View>
-          <Text style={styles.filePath}>{modelUri || 'Not set'}</Text>
-          <TouchableOpacity style={styles.inlineButton} onPress={handleImportModel}>
-            <Text style={styles.inlineButtonText}>Choose model file</Text>
-          </TouchableOpacity>
+
+          <View style={styles.overrideCard}>
+            <Text style={styles.overrideWarning}>
+              Ensure paths utilize the absolute file scheme, matching: file:///storage/emulated/...
+            </Text>
+
+            <View style={styles.fieldWrapper}>
+              <Text style={styles.fieldLabel}>Weights absolute URI (.pte)</Text>
+              <TextInput
+                style={styles.fieldInput}
+                placeholder="file:///storage/emulated/0/onionAI/Llama-3.2.pte"
+                placeholderTextColor={theme.outline}
+                value={draftModelUri}
+                onChangeText={setDraftModelUri}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            <View style={styles.fieldWrapper}>
+              <Text style={styles.fieldLabel}>Tokenizer absolute URI (.json)</Text>
+              <TextInput
+                style={styles.fieldInput}
+                placeholder="file:///storage/emulated/0/onionAI/tokenizer.json"
+                placeholderTextColor={theme.outline}
+                value={draftTokenizerUri}
+                onChangeText={setDraftTokenizerUri}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={styles.overrideSaveButton} 
+              onPress={applyManualPaths} 
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="save" size={16} color={theme.onPrimary} style={{ marginRight: 6 }} />
+              <Text style={styles.overrideSaveText}>Save Custom Paths</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.modelCard}>
-          <View style={styles.fileRow}>
-            <View style={styles.fileHeader}>
-              <MaterialIcons name="description" size={20} color={theme.tertiary} />
-              <Text style={styles.modelName}>Tokenizer</Text>
+        {/* Environment Telemetry HUD */}
+        <View style={styles.telemetryCard}>
+          <Text style={styles.telemetryTitle}>System telemetry Console</Text>
+          
+          <View style={styles.telemetryGrid}>
+            <View style={styles.telemetryItem}>
+              <Text style={styles.telemetryLabel}>Asynchronous Loader</Text>
+              <Text style={[styles.telemetryValue, isLoadingAssets && { color: theme.tertiary }]}>
+                {isLoadingAssets ? 'BUSY' : 'STANDBY'}
+              </Text>
             </View>
-            <Text style={styles.sizeText}>{formatBytes(tokenizerSize)}</Text>
-          </View>
-          <Text style={styles.filePath}>{tokenizerUri || 'Not set'}</Text>
-          <TouchableOpacity style={styles.inlineButton} onPress={handleImportTokenizer}>
-            <Text style={styles.inlineButtonText}>Choose tokenizer file</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.modelCard}>
-          <View style={styles.fileHeader}>
-            <MaterialIcons name="tune" size={20} color={theme.tertiary} />
-            <Text style={styles.modelName}>Manual path override</Text>
-          </View>
-          <Text style={styles.modelDesc}>
-            Use absolute file URIs, for example file:///storage/emulated/0/Android/data/com.anonymous.onionAI/files/Llama-3.2-1B-Instruct.pte
-          </Text>
-          <View style={styles.pathField}>
-            <Text style={styles.pathLabel}>Model path</Text>
-            <TextInput
-              style={styles.pathInput}
-              placeholder="file:///.../model.pte"
-              placeholderTextColor={theme.outline}
-              value={draftModelUri}
-              onChangeText={setDraftModelUri}
-            />
-          </View>
-          <View style={styles.pathField}>
-            <Text style={styles.pathLabel}>Tokenizer path</Text>
-            <TextInput
-              style={styles.pathInput}
-              placeholder="file:///.../tokenizer.json"
-              placeholderTextColor={theme.outline}
-              value={draftTokenizerUri}
-              onChangeText={setDraftTokenizerUri}
-            />
-          </View>
-          <TouchableOpacity style={styles.primaryWideButton} onPress={applyManualPaths}>
-            <Text style={styles.primaryButtonText}>Save paths</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.envCard}>
-          <Text style={styles.envTitle}>Environment Status</Text>
-          <View style={styles.envGrid}>
-            <View style={styles.envItem}>
-              <Text style={styles.envLabel}>Assets Loading</Text>
-              <Text style={styles.envValue}>{isLoadingAssets ? 'Yes' : 'No'}</Text>
+            <View style={styles.telemetryItem}>
+              <Text style={styles.telemetryLabel}>Runtime Engine</Text>
+              <Text style={[styles.telemetryValue, modelUri && { color: theme.tertiary }]}>
+                {modelUri ? 'ACTIVE' : 'OFFLINE'}
+              </Text>
             </View>
-            <View style={styles.envItem}>
-              <Text style={styles.envLabel}>Model Ready</Text>
-              <Text style={styles.envValue}>{modelUri ? 'Yes' : 'No'}</Text>
+            <View style={styles.telemetryItem}>
+              <Text style={styles.telemetryLabel}>Vocabulary Config</Text>
+              <Text style={[styles.telemetryValue, tokenizerUri && { color: theme.tertiary }]}>
+                {tokenizerUri ? 'VERIFIED' : 'PENDING'}
+              </Text>
             </View>
-            <View style={styles.envItem}>
-              <Text style={styles.envLabel}>Tokenizer Ready</Text>
-              <Text style={styles.envValue}>{tokenizerUri ? 'Yes' : 'No'}</Text>
-            </View>
-            <View style={styles.envItem}>
-              <Text style={styles.envLabel}>Tokenizer Config</Text>
-              <Text style={styles.envValue}>{tokenizerConfigUri || 'Generated at runtime'}</Text>
+            <View style={styles.telemetryItem}>
+              <Text style={styles.telemetryLabel}>Native Module Build</Text>
+              <Text style={styles.telemetryValue} numberOfLines={1} ellipsizeMode="middle">
+                {tokenizerConfigUri ? 'custom_spec' : 'executortorch_v0.4'}
+              </Text>
             </View>
           </View>
         </View>
@@ -354,258 +443,297 @@ export default function ModelsScreen() {
 }
 
 const createStyles = (theme: any) => StyleSheet.create({
-  storageAnalyzerCard: {
-    backgroundColor: theme.surfaceContainerLow,
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    marginBottom: 24,
-  },
-  storageTitle: {
-    color: theme.onSurface,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  storageDesc: {
-    color: theme.onSurfaceVariant,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 10,
-    marginBottom: 16,
-  },
-  storageRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: theme.surfaceContainerHighest,
-    padding: 16,
-    borderRadius: 16,
-  },
-  storageLabel: {
-    color: theme.onSurface,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  storageValue: {
-    color: theme.tertiary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  storageLabelRow: {
-    marginTop: 12,
-  },
-  storageSubLabel: {
-    color: theme.onSurfaceVariant,
-    fontSize: 12,
-  },
-  deleteButton: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 77, 77, 0.1)',
-  },
-  activeBadge: {
-    backgroundColor: theme.tertiary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  activeText: {
-    color: theme.onTertiary,
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
   container: {
     flex: 1,
     backgroundColor: theme.background,
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 40,
   },
+  
+  // Futuristic Dashboard Card
   heroCard: {
     backgroundColor: theme.surfaceContainerLow,
-    borderRadius: 32,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 24,
-    marginBottom: 32,
+    padding: 20,
+    marginBottom: 20,
     overflow: 'hidden',
   },
   heroContent: {
     zIndex: 10,
   },
+  heroHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0, 218, 243, 0.1)',
-    paddingHorizontal: 12,
+    gap: 6,
+    backgroundColor: 'rgba(0, 218, 243, 0.06)',
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginBottom: 16,
+    borderRadius: 12,
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.tertiary,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.outline,
   },
   statusText: {
     color: theme.tertiary,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   heroTitle: {
     color: theme.onSurface,
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
-    marginBottom: 8,
+    marginBottom: 6,
+    letterSpacing: -0.2,
   },
   heroSub: {
-    color: theme.onSurfaceVariant,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  heroActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  outlineButton: {
-    flex: 1,
-    backgroundColor: theme.surfaceContainerHighest,
-    paddingVertical: 12,
-    borderRadius: 24,
-    alignItems: 'center',
-  },
-  outlineButtonText: {
-    color: theme.onSurface,
-    fontWeight: '600',
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: theme.primary,
-    paddingVertical: 12,
-    borderRadius: 24,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: theme.onPrimary,
-    fontWeight: '600',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  sectionHeaderSimple: {
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    color: theme.onSurface,
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  storageInfo: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  storageText: {
-    color: theme.onSurfaceVariant,
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  storageBar: {
-    width: 100,
-    height: 6,
-    backgroundColor: theme.surfaceContainerHighest,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  storageProgress: {
-    height: '100%',
-    backgroundColor: theme.tertiary,
-  },
-  grid: {
-    gap: 16,
-  },
-  modelCard: {
-    backgroundColor: theme.surfaceContainerLow,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  iconContainer: {
-    padding: 10,
-    backgroundColor: theme.surfaceContainerHighest,
-    borderRadius: 16,
-  },
-  iconActive: {
-    backgroundColor: 'rgba(0, 218, 243, 0.1)',
-  },
-  sizeText: {
-    color: theme.onSurfaceVariant,
-    fontSize: 12,
-    fontWeight: '500',
-    backgroundColor: theme.surfaceContainerHighest,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  modelName: {
-    color: theme.onSurface,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  modelDesc: {
     color: theme.onSurfaceVariant,
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 20,
   },
-  fileRow: {
+  heroActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  clearButton: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: theme.surfaceContainerHigh,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  clearButtonText: {
+    color: theme.onSurface,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  primaryButton: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: theme.primary,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: theme.onPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  // Disk Utility Storage Analyzer
+  storageAnalyzerCard: {
+    backgroundColor: theme.surfaceContainerLow,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 24,
+  },
+  storageHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  storageTitle: {
+    color: theme.onSurface,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  storageLimitText: {
+    color: theme.outline,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  storageDesc: {
+    color: theme.onSurfaceVariant,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 16,
+  },
+  storageVisualTrack: {
+    width: '100%',
+    height: 6,
+    backgroundColor: theme.surfaceContainerHighest,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  storageVisualFill: {
+    height: '100%',
+    backgroundColor: theme.tertiary,
+    borderRadius: 3,
+  },
+  storageMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metaLabelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  storageLabel: {
+    color: theme.onSurfaceVariant,
+    fontSize: 12,
+  },
+  storageValue: {
+    color: theme.tertiary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  storageCountBadge: {
+    backgroundColor: theme.surfaceContainerHigh,
+    color: theme.onSurface,
+    fontSize: 10,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+
+  // Sections
+  sectionContainer: {
+    marginBottom: 24,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    color: theme.onSurface,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  sectionSubTitle: {
+    color: theme.outline,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+
+  // Model Cards List
+  grid: {
+    gap: 12,
+  },
+  modelCard: {
+    backgroundColor: theme.surfaceContainerLow,
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  activeModelCard: {
+    borderColor: theme.tertiary,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(0, 218, 243, 0.01)',
+  },
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
-  fileHeader: {
+  cardTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    flex: 1,
+  },
+  cardIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: theme.surfaceContainerHighest,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeCardIconWrapper: {
+    backgroundColor: 'rgba(0, 218, 243, 0.1)',
+  },
+  cardTextGroup: {
+    flex: 1,
+  },
+  modelName: {
+    color: theme.onSurface,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modelClass: {
+    color: theme.outline,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 218, 243, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  activeBadgeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.tertiary,
+  },
+  activeText: {
+    color: theme.tertiary,
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 77, 77, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filePath: {
     color: theme.onSurfaceVariant,
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 12,
+    fontSize: 10.5,
+    lineHeight: 14,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  inlineButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.surfaceContainerHigh,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  inlineButtonText: {
-    color: theme.onSurface,
-    fontSize: 12,
-    fontWeight: '600',
+    marginBottom: 12,
+    backgroundColor: theme.surfaceContainerHighest,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -615,139 +743,181 @@ const createStyles = (theme: any) => StyleSheet.create({
   downloadedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    backgroundColor: 'rgba(0, 218, 243, 0.04)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  warningDownloadedBadge: {
+    backgroundColor: 'rgba(255, 152, 0, 0.04)',
   },
   downloadedText: {
     color: theme.tertiary,
-    fontSize: 12,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  sizeBadge: {
+    backgroundColor: theme.surfaceContainerHighest,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  sizeText: {
+    color: theme.onSurfaceVariant,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  // Active Parameters Capsule Card
+  paramCapsuleCard: {
+    backgroundColor: theme.surfaceContainerLow,
+    borderRadius: 24,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  capsuleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  capsuleIconGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 8,
+  },
+  capsuleTitle: {
+    color: theme.onSurface,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  capsuleSub: {
+    color: theme.outline,
+    fontSize: 10.5,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginTop: 2,
+    width: 160,
+  },
+  capsuleStatsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  capsuleSizeText: {
+    color: theme.onSurfaceVariant,
+    fontSize: 11,
     fontWeight: '600',
+    backgroundColor: theme.surfaceContainerHighest,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  downloadSection: {
-    gap: 8,
+  capsuleButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: theme.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.03)',
   },
-  downloadMeta: {
+  capsuleDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+
+  // Manual URI Overrides
+  overrideCard: {
+    backgroundColor: theme.surfaceContainerLow,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  overrideWarning: {
+    color: '#ff9800',
+    fontSize: 11.5,
+    lineHeight: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 152, 0, 0.04)',
+    padding: 10,
+    borderRadius: 12,
+  },
+  fieldWrapper: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    color: theme.onSurfaceVariant,
+    fontSize: 11.5,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  fieldInput: {
+    backgroundColor: theme.surfaceContainerHighest,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 44,
+    color: theme.onSurface,
+    fontSize: 12.5,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.02)',
+  },
+  overrideSaveButton: {
+    flexDirection: 'row',
+    backgroundColor: theme.primary,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+  overrideSaveText: {
+    color: theme.onPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  // System Telemetry HUD
+  telemetryCard: {
+    backgroundColor: theme.surfaceContainerLow,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginTop: 8,
+  },
+  telemetryTitle: {
+    color: theme.outline,
+    fontSize: 9.5,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 16,
+  },
+  telemetryGrid: {
+    gap: 12,
+  },
+  telemetryItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  downloadProgressText: {
-    color: theme.tertiary,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  downloadSpeed: {
+  telemetryLabel: {
     color: theme.onSurfaceVariant,
-    fontSize: 11,
+    fontSize: 12,
   },
-  importCard: {
-    backgroundColor: theme.surfaceContainerLow,
-    borderRadius: 24,
-    padding: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  importIcon: {
-    marginBottom: 12,
-  },
-  importText: {
-    color: theme.onSurface,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  importSub: {
-    color: theme.onSurfaceVariant,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  envCard: {
-    marginTop: 32,
-    backgroundColor: theme.surfaceContainerLow,
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  envTitle: {
+  telemetryValue: {
     color: theme.outline,
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    marginBottom: 20,
-  },
-  envGrid: {
-    gap: 16,
-  },
-  envItem: {
-    gap: 4,
-  },
-  envLabel: {
-    color: theme.onSurfaceVariant,
-    fontSize: 11,
-  },
-  envValue: {
-    color: theme.onSurface,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontSize: 13,
-  },
-  manualPathCard: {
-    marginTop: 24,
-    backgroundColor: theme.surfaceContainerLow,
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  pathField: {
-    marginBottom: 12,
-  },
-  pathLabel: {
-    color: theme.onSurfaceVariant,
-    fontSize: 12,
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  primaryWideButton: {
-    marginTop: 4,
-    backgroundColor: theme.primary,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  manualPathTitle: {
-    color: theme.onSurface,
-    fontSize: 16,
+    fontSize: 11.5,
     fontWeight: '700',
-    marginBottom: 4,
-  },
-  manualPathSub: {
-    color: theme.onSurfaceVariant,
-    fontSize: 12,
-    marginBottom: 16,
-  },
-  pathInputContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  pathInput: {
-    flex: 1,
-    backgroundColor: theme.surfaceContainerHighest,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 48,
-    color: theme.onSurface,
-    fontSize: 14,
-  },
-  pathButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: theme.primary,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });
+

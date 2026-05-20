@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ThemedHeader } from '@/components/ThemedHeader';
 import { useTheme } from '@/hooks/use-theme-color';
@@ -35,33 +35,62 @@ export default function ExploreScreen() {
   return (
     <View style={styles.container}>
       <ThemedHeader title="About OnionAI" showMenu={false} />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Futuristic Spec Card */}
         <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>Local-first AI assistant</Text>
+          <View style={styles.heroHeaderRow}>
+            <Text style={styles.heroTitle}>Local-first AI engine</Text>
+            <View style={styles.specBadge}>
+              <Text style={styles.specBadgeText}>v1.0.4 SPEC</Text>
+            </View>
+          </View>
           <Text style={styles.heroSubtitle}>
-            OnionAI is built for private, reliable mobile AI with on-device inference and no cloud dependency.
+            OnionAI is engineered for completely private, low-latency mobile AI, executing quantized weight vectors locally on hardware without cloud dependencies.
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Core principles</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Core Architecture</Text>
+          <Text style={styles.sectionSubTitle}>PRINCIPLES</Text>
+        </View>
+
+        {/* Technical Cartridges */}
         {PRINCIPLES.map((item) => (
           <View key={item.title} style={styles.card}>
             <View style={styles.cardHeader}>
-              <MaterialIcons name={item.icon} size={18} color={theme.tertiary} />
+              <View style={styles.iconWrapper}>
+                <MaterialIcons name={item.icon} size={16} color={theme.tertiary} />
+              </View>
               <Text style={styles.cardTitle}>{item.title}</Text>
             </View>
             <Text style={styles.cardDescription}>{item.description}</Text>
           </View>
         ))}
 
-        <Text style={styles.sectionTitle}>Runtime notes</Text>
-        <View style={styles.card}>
-          {RUNTIME_NOTES.map((note) => (
-            <View key={note} style={styles.noteRow}>
-              <MaterialIcons name="check-circle" size={14} color={theme.tertiary} />
-              <Text style={styles.noteText}>{note}</Text>
-            </View>
-          ))}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Runtime Specifications</Text>
+          <Text style={styles.sectionSubTitle}>ENGINE DEPLOYMENT LOG</Text>
+        </View>
+
+        {/* Terminal Log Console */}
+        <View style={styles.consoleCard}>
+          <View style={styles.consoleHeader}>
+            <View style={styles.consoleDot} />
+            <Text style={styles.consoleTitle}>onion_telemetry_console.log</Text>
+          </View>
+          
+          <View style={styles.consoleContent}>
+            {RUNTIME_NOTES.map((note, index) => (
+              <View key={note} style={styles.noteRow}>
+                <Text style={styles.lineNumber}>{String(index + 1).padStart(2, '0')}</Text>
+                <View style={styles.noteTextContainer}>
+                  <MaterialIcons name="chevron-right" size={14} color={theme.tertiary} style={{ marginTop: 2 }} />
+                  <Text style={styles.noteText}>{note}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -74,69 +103,162 @@ const createStyles = (theme: ReturnType<typeof useTheme>) => StyleSheet.create({
     backgroundColor: theme.background,
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 40,
     gap: 12,
   },
+  
+  // Futuristic Spec Hero Card
   heroCard: {
-    borderRadius: 28,
-    padding: 24,
+    borderRadius: 24,
+    padding: 20,
     backgroundColor: theme.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: theme.outlineVariant || 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 8,
+  },
+  heroHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   heroTitle: {
     color: theme.onSurface,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
-    marginBottom: 10,
+    letterSpacing: -0.2,
+  },
+  specBadge: {
+    backgroundColor: 'rgba(0, 218, 243, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  specBadgeText: {
+    color: theme.tertiary,
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   heroSubtitle: {
     color: theme.onSurfaceVariant,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  // Sections
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginTop: 12,
+    marginBottom: 2,
+    paddingHorizontal: 4,
   },
   sectionTitle: {
-    marginTop: 8,
-    marginBottom: 4,
-    color: theme.outline,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
+    color: theme.onSurface,
+    fontSize: 15,
+    fontWeight: '700',
   },
+  sectionSubTitle: {
+    color: theme.outline,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+
+  // Architecture Cartridge Cards
   card: {
     borderRadius: 20,
     padding: 16,
     backgroundColor: theme.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: theme.outlineVariant || 'rgba(255, 255, 255, 0.05)',
-    gap: 8,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    gap: 6,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+  },
+  iconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 218, 243, 0.06)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cardTitle: {
     color: theme.onSurface,
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '700',
   },
   cardDescription: {
     color: theme.onSurfaceVariant,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12.5,
+    lineHeight: 18,
+  },
+
+  // Terminal Log Console
+  consoleCard: {
+    backgroundColor: theme.surfaceContainerLow,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    overflow: 'hidden',
+  },
+  consoleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.surfaceContainerHigh,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  consoleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.tertiary,
+  },
+  consoleTitle: {
+    color: theme.outline,
+    fontSize: 10.5,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontWeight: '700',
+  },
+  consoleContent: {
+    padding: 16,
+    gap: 12,
   },
   noteRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 12,
+  },
+  lineNumber: {
+    color: theme.outlineVariant || 'rgba(255, 255, 255, 0.2)',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '700',
+  },
+  noteTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
   },
   noteText: {
     flex: 1,
     color: theme.onSurfaceVariant,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
 });
+

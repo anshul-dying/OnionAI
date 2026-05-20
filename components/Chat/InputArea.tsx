@@ -32,19 +32,20 @@ export const InputArea: React.FC<InputAreaProps> = ({
     };
   }, []);
 
-  const bottomPadding = isKeyboardVisible ? 8 : 12;
+  const bottomPadding = isKeyboardVisible ? 12 : 20;
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
-      <View style={[styles.inputWrapper, { backgroundColor: theme.surfaceContainerHigh }]}>
+      <View style={[styles.inputWrapper, { backgroundColor: theme.surfaceContainerLow }]}>
         <TextInput
           style={[styles.input, { color: theme.onSurface }]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={theme.onSurfaceVariant + '80'}
+          placeholderTextColor={theme.outline}
           multiline
           editable={!disabled}
+          autoCorrect={false}
         />
 
         <View style={styles.rightActions}>
@@ -56,11 +57,12 @@ export const InputArea: React.FC<InputAreaProps> = ({
             ]} 
             onPress={onSend}
             disabled={!value.trim() || disabled}
+            activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Send message"
             accessibilityHint="Sends your message to OnionAI"
           >
-            <MaterialIcons name="send" size={20} color={theme.onPrimary} />
+            <MaterialIcons name="arrow-upward" size={18} color={theme.onPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -76,39 +78,45 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 32,
-    padding: 8,
+    borderRadius: 24,
+    padding: 6,
+    paddingLeft: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 8,
+        elevation: 4,
       },
     }),
   },
   input: {
     flex: 1,
     fontSize: 14,
-    paddingHorizontal: 14,
-    maxHeight: 100,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    maxHeight: 120,
+    minHeight: 36,
   },
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    paddingRight: 2,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.25,
   },
 });
