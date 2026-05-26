@@ -53,3 +53,12 @@ app-example
 .venv/
 venv/
 *.bin
+
+# Personal college files
+EDAI sem 6.pdf
+EDAI_sem_6_text.txt
+FF 180 Project Registration and Progress Review.pdf
+presentation.html
+quantization/research_paper/
+docs/examiner_viva_prep_guide.md
+docs/project_contributions.md
